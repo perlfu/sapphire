@@ -335,7 +335,7 @@ Java_com_ibm_JikesRVM_Java2HPM_getEventShortName(JNIEnv *env,	/* interface point
   char * value = hpm_get_event_short_name(counter);
 
   if(debug>=1) fprintf(stdout,"Java2HPM_getEventShortName(%d) returns %s\n",counter,value);
-  r_value = (*env)->NewStringUTF(env,value);
+  r_value = env->NewStringUTF(value);
   if(debug>=1){fprintf(stdout,"Java2HPM_getEventShortName(%d) r_value 0X%x\n",counter,r_value);fflush(stdout);}
   return r_value;
 }
@@ -383,7 +383,7 @@ Java_com_ibm_JikesRVM_Java2HPM_getProcessorName(JNIEnv *env,	/* interface pointe
   char * value = hpm_get_processor_name();
 
   if(debug>=1) fprintf(stdout,"Java2HPM_getProcessorName() returns %s\n",value);
-  r_value = (*env)->NewStringUTF(env,value);
+  r_value = env->NewStringUTF(value);
   if(debug>=1){fprintf(stdout,"Java2HPM_getProcessorName() r_value 0X%x\n",r_value);fflush(stdout);}
   return r_value;
 }
