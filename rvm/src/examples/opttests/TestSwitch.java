@@ -1,43 +1,56 @@
 /*
  * (C) Copyright IBM Corp. 2001
  */
-class testSwitch {
+//$Id$
+/**
+ * @author unascribed
+ */
 
-static int argwords(String sig)
+class TestSwitch
 {
-    int n = 0;
+  public static void main(String args[])
+  {
+    // VM.boot();
+    run();
+  }
+  
+  public static boolean run()
+  {
+    System.out.println("TestSwitch");
+    
+    int j;
+    
+    // tableswitch
+    System.out.print("\nwant: 99101199\n got: ");
+    for (int i = 9; i < 13; i += 1)
+      {
+	switch (i)
+	  {
+	  case 10: j = 10; break;
+	  case 11: j = 11; break;
+	  default: j = 99; break;
+	  }
+	System.out.print(j);
+      }
+    System.out.println();
+    
+    // lookupswitch
+    System.out.print("\nwant: 99102030405099\n got: ");
+    for (int i = 0; i < 70; i += 10)
+      {
+	switch (i)
+	  {
+	  case 10: j = 10;  break;
+	  case 20: j = 20;  break;
+	  case 30: j = 30;  break;
+	  case 40: j = 40;  break;
+	  case 50: j = 50;  break;
+	  default: j = 99;  break;
+	  }
+	System.out.print(j);
+      }
+    System.out.println();
 
-    for (int i = 1; i < sig.length(); i++) {
-        switch (sig.charAt(i)) {
-            case ')':   return n;
-            default:    n += 1;  break; // error
-            case 'B':   n += 1;  break;
-            case 'C':   n += 1;  break;
-            case 'D':   n += 2;  break;
-            case 'F':   n += 1;  break;
-            case 'I':   n += 1;  break;
-            case 'J':   n += 2;  break;
-            case 'S':   n += 1;  break;
-            case 'Z':   n += 1;  break;
-            case 'L':
-                n += 1;
-
-/* Something is wrong with HIR in the following statement */
-/* This breaks RegAlloc, reported as bug report #10. */
-                while (sig.charAt(++i) != ';') ;
-
-                break;
-            case '[':
-                n += 1;
-                while (sig.charAt(++i) == '[')
-                    ;
-                if (sig.charAt(i) == 'L')
-                    while (sig.charAt(++i) != ';')
-                        ;
-                break;
-        }
-    }
-    return n;
-}
-
+    return true;
+  }
 }
