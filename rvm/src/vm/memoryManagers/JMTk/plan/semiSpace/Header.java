@@ -27,18 +27,22 @@ public class Header extends HybridHeader {
   public final static int GC_BARRIER_BIT_MASK = -1;  // must be defined even though unused
   public static boolean isBeingForwarded(Object base) 
     throws VM_PragmaUninterruptible, VM_PragmaInline {
-    if (VM_Interface.VerifyAssertions) VM_Interface._assert(false);
-    return false;
+    if (Plan.isSemiSpaceObject(base))
+      return CopyingHeader.isBeingForwarded(base);
+    else
+      return false;
   }
 
   public static boolean isForwarded(Object base) 
     throws VM_PragmaUninterruptible, VM_PragmaInline {
-    if (VM_Interface.VerifyAssertions) VM_Interface._assert(false);
-    return false;
+    if (Plan.isSemiSpaceObject(base))
+      return CopyingHeader.isForwarded(base);
+    else
+      return false;
   }
 
   static void setBarrierBit(Object ref)
     throws VM_PragmaUninterruptible, VM_PragmaInline {
-    if (VM_Interface.VerifyAssertions) VM_Interface._assert(false);
+    VM_Interface._assert(false);
   }
 }
