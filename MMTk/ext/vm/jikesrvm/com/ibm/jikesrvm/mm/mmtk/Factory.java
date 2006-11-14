@@ -6,35 +6,32 @@
  *
  * (C) Copyright Department of Computer Science,
  * Australian National University. 2006
- * 
- * GCspy components (C) Copyright Richard Jones, 2006
+ *
+ * GCspy components
+ * (C) Copyright Richard Jones, 2005-6
  * Computing Laboratory, University of Kent at Canterbury
  */
-package org.mmtk.vm;
+package com.ibm.jikesrvm.mm.mmtk;
 
 import org.mmtk.utility.gcspy.Color;
 import org.mmtk.utility.gcspy.drivers.AbstractDriver;
-import org.mmtk.vm.gcspy.ByteStream;
-import org.mmtk.vm.gcspy.IntStream;
-import org.mmtk.vm.gcspy.ServerInterpreter;
-import org.mmtk.vm.gcspy.ServerSpace;
-import org.mmtk.vm.gcspy.ShortStream;
-import org.mmtk.vm.gcspy.Util;
+import com.ibm.jikesrvm.mm.mmtk.gcspy.*;
+
+import com.ibm.jikesrvm.VM;
 
 /**
- * This class defines factory methods for VM-specific types which must
- * be instantiated within MMTk.  Since the concrete type is defined at
- * build time, we leave it to a concrete vm-specific instance of this class
- * to perform the object instantiation.
+ * This is a VM-specific class which defines factory methods for
+ * VM-specific types which must be instantiated within MMTk.
+ * 
+ * @see org.mmtk.vm.Factory
  * 
  * $Id$
  * 
  * @author Steve Blackburn
- * 
  * @version $Revision$
  * @date $Date$
  */
-public abstract class Factory {
+public final class Factory extends org.mmtk.vm.Factory {
 
   /**
    * Create a new ActivePlan instance using the appropriate VM-specific
@@ -43,8 +40,15 @@ public abstract class Factory {
    * @see ActivePlan
    * @return A concrete VM-specific ActivePlan instance.
    */
-  public abstract ActivePlan newActivePlan();
-
+  public org.mmtk.vm.ActivePlan newActivePlan() {
+    try {
+      return new ActivePlan();
+    } catch (Exception e) {
+      VM.sysFail("Failed to allocate new ActivePlan!");
+      return null; // never get here
+    }
+  }
+  
   /**
    * Create a new Assert instance using the appropriate VM-specific
    * concrete Assert sub-class.
@@ -52,8 +56,15 @@ public abstract class Factory {
    * @see Assert
    * @return A concrete VM-specific Assert instance.
    */
-  public abstract Assert newAssert();
-
+  public org.mmtk.vm.Assert newAssert() {
+    try {
+      return new Assert();
+    } catch (Exception e) {
+      VM.sysFail("Failed to allocate new Assert!");
+      return null; // never get here
+    }
+  }
+  
   /**
    * Create a new Barriers instance using the appropriate VM-specific
    * concrete Barriers sub-class.
@@ -61,8 +72,15 @@ public abstract class Factory {
    * @see Barriers
    * @return A concrete VM-specific Barriers instance.
    */
-  public abstract Barriers newBarriers();
-
+  public org.mmtk.vm.Barriers newBarriers() {
+    try {
+      return new Barriers();
+    } catch (Exception e) {
+      VM.sysFail("Failed to allocate new Barriers!");
+      return null; // never get here
+    }
+  }
+  
   /**
    * Create a new Collection instance using the appropriate VM-specific
    * concrete Collection sub-class.
@@ -70,18 +88,33 @@ public abstract class Factory {
    * @see Collection
    * @return A concrete VM-specific Collection instance.
    */
-  public abstract Collection newCollection();
-
+  public org.mmtk.vm.Collection newCollection() {
+    try {
+      return new Collection();
+    } catch (Exception e) {
+      VM.sysFail("Failed to allocate new Collection!");
+      return null; // never get here
+    }
+  }
+  
   /**
    * Create a new Lock instance using the appropriate VM-specific
    * concrete Lock sub-class.
    * 
    * @see Lock
+   * 
    * @param name The string to be associated with this lock instance
    * @return A concrete VM-specific Lock instance.
    */
-  public abstract Lock newLock(String name);
-  
+  public org.mmtk.vm.Lock newLock(String name) {
+    try {
+      return new Lock(name);
+    } catch (Exception e) {
+      VM.sysFail("Failed to allocate new Lock!");
+      return null; // never get here
+    }
+  }
+
   /**
    * Create a new Memory instance using the appropriate VM-specific
    * concrete Memory sub-class.
@@ -89,8 +122,15 @@ public abstract class Factory {
    * @see Memory
    * @return A concrete VM-specific Memory instance.
    */
-  public abstract Memory newMemory();
-
+  public org.mmtk.vm.Memory newMemory() {
+    try {
+      return new Memory();
+    } catch (Exception e) {
+      VM.sysFail("Failed to allocate new Memory!");
+      return null; // never get here
+    }
+  }
+  
   /**
    * Create a new ObjectModel instance using the appropriate VM-specific
    * concrete ObjectModel sub-class.
@@ -98,8 +138,15 @@ public abstract class Factory {
    * @see ObjectModel
    * @return A concrete VM-specific ObjectModel instance.
    */
-  public abstract ObjectModel newObjectModel();
-
+  public org.mmtk.vm.ObjectModel newObjectModel() {
+    try {
+      return new ObjectModel();
+    } catch (Exception e) {
+      VM.sysFail("Failed to allocate new ObjectModel!");
+      return null; // never get here
+    }
+  }
+  
   /**
    * Create a new Options instance using the appropriate VM-specific
    * concrete Options sub-class.
@@ -107,8 +154,15 @@ public abstract class Factory {
    * @see Options
    * @return A concrete VM-specific Options instance.
    */
-  public abstract Options newOptions();
-
+  public org.mmtk.vm.Options newOptions() {
+    try {
+      return new Options();
+    } catch (Exception e) {
+      VM.sysFail("Failed to allocate new Options!");
+      return null; // never get here
+    }
+  }
+  
   /**
    * Create a new ReferenceGlue instance using the appropriate VM-specific
    * concrete ReferenceGlue sub-class.
@@ -116,8 +170,15 @@ public abstract class Factory {
    * @see ReferenceGlue
    * @return A concrete VM-specific ReferenceGlue instance.
    */
-  public abstract ReferenceGlue newReferenceGlue();
-
+  public org.mmtk.vm.ReferenceGlue newReferenceGlue() {
+    try {
+      return new ReferenceGlue();
+    } catch (Exception e) {
+      VM.sysFail("Failed to allocate new ReferenceGlue!");
+      return null; // never get here
+    }
+  }
+  
   /**
    * Create a new Scanning instance using the appropriate VM-specific
    * concrete Scanning sub-class.
@@ -125,8 +186,15 @@ public abstract class Factory {
    * @see Scanning
    * @return A concrete VM-specific Scanning instance.
    */
-  public abstract Scanning newScanning();
-
+  public org.mmtk.vm.Scanning newScanning() {
+    try {
+      return new Scanning();
+    } catch (Exception e) {
+      VM.sysFail("Failed to allocate new Scanning!");
+      return null; // never get here
+    }
+  }
+  
   /**
    * Create a new Statistics instance using the appropriate VM-specific
    * concrete Statistics sub-class.
@@ -134,8 +202,15 @@ public abstract class Factory {
    * @see Statistics
    * @return A concrete VM-specific Statistics instance.
    */
-  public abstract Statistics newStatistics();
-
+  public org.mmtk.vm.Statistics newStatistics() {
+    try {
+      return new Statistics();
+    } catch (Exception e) {
+      VM.sysFail("Failed to allocate new Statistics!");
+      return null; // never get here
+    }
+  }
+  
   /**
    * Create a new Strings instance using the appropriate VM-specific
    * concrete Strings sub-class.
@@ -143,7 +218,14 @@ public abstract class Factory {
    * @see Strings
    * @return A concrete VM-specific Strings instance.
    */
-  public abstract Strings newStrings();
+  public org.mmtk.vm.Strings newStrings() {
+    try {
+      return new Strings();
+    } catch (Exception e) {
+      VM.sysFail("Failed to allocate new Strings!");
+      return null; // never get here
+    }
+  }
   
   /**
    * Create a new SynchronizedCounter instance using the appropriate
@@ -153,8 +235,15 @@ public abstract class Factory {
    * 
    * @return A concrete VM-specific SynchronizedCounter instance.
    */
-  public abstract SynchronizedCounter newSynchronizedCounter();
-  
+  public org.mmtk.vm.SynchronizedCounter newSynchronizedCounter() {
+    try {
+      return new SynchronizedCounter();
+    } catch (Exception e) {
+     VM.sysFail("Failed to allocate new SynchronizedCounter!");
+      return null; // never get here
+    }
+  }
+
   /**
    * Create a new TraceInterface instance using the appropriate VM-specific
    * concrete TraceInterface sub-class.
@@ -162,8 +251,14 @@ public abstract class Factory {
    * @see TraceInterface
    * @return A concrete VM-specific TraceInterface instance.
    */
-  public abstract TraceInterface newTraceInterface();
- 
+  public org.mmtk.vm.TraceInterface newTraceInterface() {
+    try {
+      return new TraceInterface();
+    } catch (Exception e) {
+      VM.sysFail("Failed to allocate new TraceInterface!");
+      return null; // never get here
+    }
+  }
   
   /**********************************************************************
    * GCspy methods
@@ -176,7 +271,14 @@ public abstract class Factory {
    * @see Util
    * @return A concrete VM-specific Util instance.
    */
-  public abstract Util newGCspyUtil();
+  public org.mmtk.vm.gcspy.Util newGCspyUtil() {
+    try {
+      return new com.ibm.jikesrvm.mm.mmtk.gcspy.Util();
+    } catch (Exception e) {
+      VM.sysFail("Failed to allocate new Util!");
+      return null; // never get here
+    }
+  }
   
   /**
    * Create a new ServerInterpreter instance using the appropriate VM-specific
@@ -185,8 +287,15 @@ public abstract class Factory {
    * @see ServerInterpreter
    * @return A concrete VM-specific ServerInterpreter instance.
    */
-  public abstract ServerInterpreter newGCspyServerInterpreter();
-   
+  public org.mmtk.vm.gcspy.ServerInterpreter newGCspyServerInterpreter() {
+    try {
+      return new com.ibm.jikesrvm.mm.mmtk.gcspy.ServerInterpreter();
+    } catch (Exception e) {
+      VM.sysFail("Failed to allocate new ServerInterpreter!");
+      return null; // never get here
+    }
+  }
+  
   /**
    * Create a new ServerSpace instance using the appropriate VM-specific
    * concrete ServerSpace sub-class.
@@ -203,52 +312,24 @@ public abstract class Factory {
    * @see ServerSpace
    * @return A concrete VM-specific ServerSpace instance.
    */
-  public abstract ServerSpace newGCspyServerSpace(
-      ServerInterpreter serverInterpreter,
+  public org.mmtk.vm.gcspy.ServerSpace newGCspyServerSpace(
+      org.mmtk.vm.gcspy.ServerInterpreter serverInterpreter,
       String serverName, 
       String driverName,
       String title,
       String blockInfo,
       int tileNum,
       String unused, 
-      boolean mainSpace);
-  
-  /**
-   * Create a new IntStream instance using the appropriate
-   * VM-specific concrete IntStream sub-class.
-   * 
-   * @param driver        The driver that owns this Stream
-   * @param name           The name of the stream (e.g. "Used space")
-   * @param minValue       The minimum value for any item in this stream. 
-   *                       Values less than this will be represented as "minValue-"
-   * @param maxValue       The maximum value for any item in this stream. 
-   *                       Values greater than this will be represented as "maxValue+"
-   * @param zeroValue      The zero value for this stream
-   * @param defaultValue   The default value for this stream
-   * @param stringPre      A string to prefix values (e.g. "Used: ")
-   * @param stringPost     A string to suffix values (e.g. " bytes.")
-   * @param presentation   How a stream value is to be presented.    
-   * @param paintStyle     How the value is to be painted.   
-   * @param indexMaxStream The index of the maximum stream if the presentation is *_VAR.
-   * @param colour         The default colour for tiles of this stream
-   * @see IntStream
-   * 
-   * @return A concrete VM-specific IntStream instance. 
-   */
-  public abstract IntStream newGCspyIntStream(
-      AbstractDriver driver,
-      String name,
-      int minValue,         
-      int maxValue,
-      int zeroValue,
-      int defaultValue,
-      String stringPre,
-      String stringPost,
-      int presentation,
-      int paintStyle,
-      int indexMaxStream,
-      Color colour,
-      boolean summary);
+      boolean mainSpace){
+    try {
+      return new com.ibm.jikesrvm.mm.mmtk.gcspy.ServerSpace(
+          serverInterpreter, serverName, driverName, title, 
+          blockInfo, tileNum, unused, mainSpace);
+    } catch (Exception e) {
+      VM.sysFail("Failed to allocate new ServerSpace!");
+      return null; // never get here
+    }
+  }
   
   /**
    * Create a new ByteStream instance using the appropriate
@@ -272,7 +353,7 @@ public abstract class Factory {
    * 
    * @return A concrete VM-specific ByteStream instance. 
    */
-  public abstract ByteStream newGCspyByteStream(
+  public org.mmtk.vm.gcspy.ByteStream newGCspyByteStream(
       AbstractDriver driver,
       String name,
       byte minValue,         
@@ -285,8 +366,66 @@ public abstract class Factory {
       int paintStyle,
       int indexMaxStream,
       Color colour,
-      boolean summary);
-  
+      boolean summary) {
+    try {
+      return new com.ibm.jikesrvm.mm.mmtk.gcspy.ByteStream(
+          driver, name, minValue,  maxValue,
+          zeroValue, defaultValue, stringPre, stringPost,
+          presentation, paintStyle, indexMaxStream,
+          colour, summary);
+    } catch (Exception e) {
+      VM.sysFail("Failed to allocate new ByteStream!");
+      return null; // never get here
+    }
+  } 
+  /**
+   * Create a new IntStream instance using the appropriate
+   * VM-specific concrete IntStream sub-class.
+   * 
+   * @param driver        The driver that owns this Stream
+   * @param name           The name of the stream (e.g. "Used space")
+   * @param minValue       The minimum value for any item in this stream. 
+   *                       Values less than this will be represented as "minValue-"
+   * @param maxValue       The maximum value for any item in this stream. 
+   *                       Values greater than this will be represented as "maxValue+"
+   * @param zeroValue      The zero value for this stream
+   * @param defaultValue   The default value for this stream
+   * @param stringPre      A string to prefix values (e.g. "Used: ")
+   * @param stringPost     A string to suffix values (e.g. " bytes.")
+   * @param presentation   How a stream value is to be presented.    
+   * @param paintStyle     How the value is to be painted.   
+   * @param indexMaxStream The index of the maximum stream if the presentation is *_VAR.
+   * @param colour         The default colour for tiles of this stream
+   * @see IntStream
+   * 
+   * @return A concrete VM-specific IntStream instance. 
+   */
+  public org.mmtk.vm.gcspy.IntStream newGCspyIntStream(
+      AbstractDriver driver,
+      String name,
+      int minValue,         
+      int maxValue,
+      int zeroValue,
+      int defaultValue,
+      String stringPre,
+      String stringPost,
+      int presentation,
+      int paintStyle,
+      int indexMaxStream,
+      Color colour,
+      boolean summary) {
+    try {
+      return new com.ibm.jikesrvm.mm.mmtk.gcspy.IntStream(
+          driver, name, minValue,  maxValue,
+          zeroValue, defaultValue, stringPre, stringPost,
+          presentation, paintStyle, indexMaxStream,
+          colour, summary);
+    } catch (Exception e) {
+      VM.sysFail("Failed to allocate new IntStream!");
+      return null; // never get here
+    }
+  }
+
   /**
    * Create a new ShortStream instance using the appropriate
    * VM-specific concrete ShortStream sub-class.
@@ -309,7 +448,7 @@ public abstract class Factory {
    * 
    * @return A concrete VM-specific ShortStream instance. 
    */
-  public abstract ShortStream newGCspyShortStream(
+  public org.mmtk.vm.gcspy.ShortStream newGCspyShortStream(
       AbstractDriver driver,
       String name,
       short minValue,         
@@ -322,5 +461,16 @@ public abstract class Factory {
       int paintStyle,
       int indexMaxStream,
       Color colour,
-      boolean summary);
+      boolean summary) {
+    try {
+      return new com.ibm.jikesrvm.mm.mmtk.gcspy.ShortStream(
+          driver, name, minValue,  maxValue,
+          zeroValue, defaultValue, stringPre, stringPost,
+          presentation, paintStyle, indexMaxStream,
+          colour, summary);
+    } catch (Exception e) {
+      VM.sysFail("Failed to allocate new ShortStream!");
+      return null; // never get here
+    }
+  }
 }
