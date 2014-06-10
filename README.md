@@ -1,4 +1,4 @@
-# Sapphire Garbage Collector for Jikes RVM
+## Sapphire Garbage Collector for Jikes RVM
 
 This repository contains a copy of Jikes RVM patched with an
 implement of the Sapphire garbage collection algorithm.
