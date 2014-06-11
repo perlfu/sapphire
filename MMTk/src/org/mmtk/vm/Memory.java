@@ -136,6 +136,16 @@ import org.vmmagic.pragma.*;
   @Inline
   public abstract void isync();
 
+  /**
+   * Wait for preceeding cache flush/invalidate instructions to complete
+   * on all processors.  Ensures that all memory writes before this
+   * point are visible to all processors.
+   * 
+   * Use fence instead of sync when we need MFENCE
+   */
+  @Inline
+  public abstract void fence();
+
   /*
    * NOTE: The following methods must be implemented by subclasses of this
    * class, but are internal to the VM<->MM interface glue, so are never

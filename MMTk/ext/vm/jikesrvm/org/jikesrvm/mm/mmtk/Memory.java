@@ -154,4 +154,10 @@ import org.vmmagic.pragma.*;
   public final void isync() {
     Magic.isync();
   }
+
+  @Override
+  @Inline
+  public final void fence() {
+    Magic.fence();
+  }
 }
