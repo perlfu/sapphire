@@ -43,6 +43,7 @@ import org.jikesrvm.jni.JNIEnvironment;
 import org.jikesrvm.mm.mminterface.CollectorThread;
 import org.jikesrvm.mm.mminterface.MemoryManager;
 import org.jikesrvm.mm.mminterface.ThreadContext;
+import org.jikesrvm.mm.mmtk.Collection;
 import org.jikesrvm.objectmodel.ObjectModel;
 import org.jikesrvm.objectmodel.ThinLockConstants;
 import org.jikesrvm.runtime.Entrypoints;
@@ -78,6 +79,8 @@ import org.jikesrvm.classloader.MemberReference;
 import org.jikesrvm.classloader.NormalMethod;
 import org.jikesrvm.tuningfork.TraceEngine;
 import org.jikesrvm.tuningfork.Feedlet;
+import org.mmtk.plan.MutatorContext;
+import org.mmtk.utility.options.Options;
 
 /**
  * A generic java thread's execution context.
