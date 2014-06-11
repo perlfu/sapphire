@@ -13,6 +13,7 @@
 package org.mmtk.vm;
 
 import org.vmmagic.pragma.Uninterruptible;
+import org.vmmagic.unboxed.ObjectReference;
 
 @Uninterruptible public abstract class Assert {
   /**
@@ -65,4 +66,6 @@ import org.vmmagic.pragma.Uninterruptible;
   static boolean verifyAssertionsTrapdoor(Assert a) {
     return a.getVerifyAssertionsConstant();
   }
+
+  public abstract boolean validRef(ObjectReference ref);
 }

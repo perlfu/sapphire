@@ -15,9 +15,11 @@ package org.jikesrvm.mm.mmtk;
 import org.mmtk.policy.Space;
 
 import org.jikesrvm.VM;
+import org.jikesrvm.mm.mminterface.DebugUtil;
 import org.jikesrvm.scheduler.RVMThread;
 
 import org.vmmagic.pragma.*;
+import org.vmmagic.unboxed.ObjectReference;
 
 @Uninterruptible public class Assert extends org.mmtk.vm.Assert {
   @Override
@@ -70,5 +72,9 @@ import org.vmmagic.pragma.*;
   @Override
   public final void dumpStack() {
     RVMThread.dumpStack();
+  }
+
+  public boolean validRef(ObjectReference ref) {
+    return DebugUtil.validObject(ref.toObject());
   }
 }
