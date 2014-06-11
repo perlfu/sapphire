@@ -18,12 +18,14 @@ import org.jikesrvm.VM;
 import org.jikesrvm.SizeConstants;
 import org.jikesrvm.classloader.RVMMethod;
 import org.jikesrvm.classloader.RVMType;
+import org.jikesrvm.mm.mminterface.Selected;
 import org.jikesrvm.runtime.DynamicLink;
 import org.jikesrvm.runtime.ExceptionDeliverer;
 import org.jikesrvm.runtime.Magic;
 import org.jikesrvm.runtime.StackBrowser;
 import org.jikesrvm.runtime.Statics;
 import org.jikesrvm.scheduler.RVMThread;
+import org.mmtk.plan.Plan;
 import org.vmmagic.pragma.Interruptible;
 import org.vmmagic.pragma.Uninterruptible;
 import org.vmmagic.pragma.Unpreemptible;
@@ -51,7 +53,6 @@ public abstract class CompiledMethod implements SizeConstants {
   private static final byte COMPILED = 0x08;
   private static final byte INVALID = 0x04;
   private static final byte OBSOLETE = 0x02;
-  private static final byte ACTIVE_ON_STACK = 0x01;
   /** flags the compiled method as outdated, needs OSR */
   private static final byte OUTDATED = 0x10;
   /**
@@ -67,6 +68,7 @@ public abstract class CompiledMethod implements SizeConstants {
 
   /** Flags bit field */
   private byte flags;
+  private boolean activeOnStack;
 
   /**
    * The compiled method id of this compiled method (index into CompiledMethods)
@@ -297,17 +299,22 @@ public abstract class CompiledMethod implements SizeConstants {
    */
   @Uninterruptible
   public final void setObsolete() {
+    if (Selected.Constraints.get().onTheFlyCollector() && Plan.gcInProgress()) {
+      // avoid a thread which has already been scanned running an 
+      // obsolete method that will be GC'd shortly
+      setActiveOnStack();
+    }
     flags |= OBSOLETE;
   }
 
   @Uninterruptible
   public final void setActiveOnStack() {
-    flags |= ACTIVE_ON_STACK;
+    activeOnStack = true;
   }
 
   @Uninterruptible
   public final void clearActiveOnStack() {
-    flags &= ~ACTIVE_ON_STACK;
+    activeOnStack = false;
   }
 
   /**
@@ -355,7 +362,7 @@ public abstract class CompiledMethod implements SizeConstants {
 
   @Uninterruptible
   public final boolean isActiveOnStack() {
-    return (flags & ACTIVE_ON_STACK) != 0;
+    return activeOnStack;
   }
 
   public final double getCompilationTime() { return compilationTime; }
