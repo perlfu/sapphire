@@ -25,7 +25,7 @@ public class PretenureThresholdFraction extends org.vmutil.options.FloatOption {
   public PretenureThresholdFraction() {
     super(Options.set, "Pretenure Threshold Fraction",
           "Objects larger than this fraction of the remaining nursery will be allocated directly into the LOS.",
-          DEFAULT_PRETENURE_THRESHOLD_FRACTION);
+          1.0f);
   }
 
   /**

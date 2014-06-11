@@ -50,6 +50,7 @@ public class CopyMS extends StopTheWorld {
   /****************************************************************************
    * Constants
    */
+  static final float DEFAULT_PRETENURE_THRESHOLD_FRACTION = 1.5f;
 
   /****************************************************************************
    * Class variables
@@ -83,6 +84,7 @@ public class CopyMS extends StopTheWorld {
  */
   public CopyMS() {
     trace = new Trace(metaDataSpace);
+    Options.pretenureThresholdFraction.setDefaultValue(DEFAULT_PRETENURE_THRESHOLD_FRACTION);
   }
 
 

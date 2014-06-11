@@ -26,6 +26,8 @@ import org.vmmagic.unboxed.ObjectReference;
 @Uninterruptible
 public class GenRC extends RCBase {
 
+  static final float DEFAULT_PRETENURE_THRESHOLD_FRACTION = 1.5f;
+
   public static final int ALLOC_NURSERY = ALLOC_DEFAULT;
   public static final int ALLOC_RC      = RCBase.ALLOCATORS + 1;
 
@@ -34,6 +36,10 @@ public class GenRC extends RCBase {
 
   public static final int NURSERY = nurserySpace.getDescriptor();
 
+  public GenRC() {
+    Options.pretenureThresholdFraction.setDefaultValue(DEFAULT_PRETENURE_THRESHOLD_FRACTION);
+  }
+  
   /*****************************************************************************
    *
    * Collection
