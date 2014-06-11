@@ -285,7 +285,7 @@ public class Map {
   public static boolean isFinalized() {
     return finalized;
   }
-
+  
   /**
    * Return the ordinal number for some free list space wishing to share a discontiguous region.
    * @return The ordinal number for a free list space wishing to share a discontiguous region

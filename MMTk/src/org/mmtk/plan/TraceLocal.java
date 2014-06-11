@@ -432,6 +432,8 @@ public abstract class TraceLocal extends TransitiveClosure implements Constants 
   }
 
   /**
+   * OBSOLETE? 
+   * 
    * Return true if an object is ready to move to the finalizable
    * queue, i.e. it has no regular references to it.  This method may
    * (and in some cases is) be overridden by subclasses. If this method
