@@ -27,4 +27,25 @@ public abstract class LinearScan {
    * @param object The object to scan
    */
   public abstract void scan(ObjectReference object);
+
+  public void scan(ObjectReference object, int size) { scan(object); }
+
+  /**
+   * Scan an (potentially dead) object, with a cell address and extent.
+   *
+   * @param object The object to scan
+   * @param live Whether the object is live
+   * @param cellAddress Start of the memory cell holding the object
+   * @param cellExtent Length of the memory cell holding the object
+   */
+  public void scan(ObjectReference object, boolean live, Address cellAddress, Extent cellExtent) {
+    if (live)
+      scan(object);
+  }
+
+  @Inline
+  public void startScanSeries() {}
+  
+  @Inline
+  public void endScanSeries() {}
 }
