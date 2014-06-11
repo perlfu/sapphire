@@ -303,10 +303,17 @@ public final class Register {
 
   public void freeRegister() {
     deallocateRegister();
+    /*
+     * UGAWA
+     *   This code is not used.
+     *   The optimizing compiler crashes during compilation of this method.
+     *
     Register symbReg = mapsToRegister;
     if (symbReg != null) {
       symbReg.clearSpill();
     }
+     *
+     */
   }
 
   public void spillRegister() {
