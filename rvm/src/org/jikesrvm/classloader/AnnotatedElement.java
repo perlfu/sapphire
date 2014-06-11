@@ -380,4 +380,12 @@ public abstract class AnnotatedElement implements java.lang.reflect.AnnotatedEle
   public final boolean hasNonMovingAllocationAnnotation() {
     return isAnnotationDeclared(TypeReference.NonMovingAllocation);
   }
+
+  /**
+   * Return true if this element has a NonReplicatingAllocation annotation.
+   * @see org.vmmagic.pragma.NonReplicatingAllocation
+   */
+  public final boolean hasNonReplicatingAllocationAnnotation() {
+    return isAnnotationDeclared(TypeReference.NonReplicatingAllocation);
+  }
 }

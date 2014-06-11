@@ -677,6 +677,13 @@ public abstract class RVMMethod extends RVMMember implements BytecodeConstants {
     return hasNonMovingAllocationAnnotation();
   }
 
+  /**
+   * Should all allocation from this method go to a non-replicated space?
+   */
+  public boolean isNonReplicatingAllocation() {
+    return hasNonReplicatingAllocationAnnotation();
+  }
+
   //------------------------------------------------------------------//
   //                        Section 2.                                //
   // The following are available after the declaring class has been   //
