@@ -21,16 +21,32 @@ public class ConcurrentTrigger extends org.vmutil.options.IntOption {
    */
   public ConcurrentTrigger() {
     super(Options.set, "Concurrent Trigger",
-          "Concurrent trigger percentage",
-          30);
+          "Concurrent trigger percentage, allocation (pages) or time (us)",
+          -1);
   }
 
+  public int getValueForMethod(int method) {
+    if (this.getValue() == -1) {
+      if (method == ConcurrentTriggerMethod.ALLOCATION)
+        return 8192;
+      else if (method == ConcurrentTriggerMethod.PERCENTAGE)
+        return 50;
+      else if (method == ConcurrentTriggerMethod.PERIOD)
+        return 300 * 1000;
+      else if (method == ConcurrentTriggerMethod.TIME)
+        return 250 * 1000;
+      else
+        return 0;
+    } else {
+      return this.getValue();
+    }
+  }
+  
   /**
-   * Only accept values between 1 and 100 (inclusive)
+   * Only accept valid values
    */
   @Override
   protected void validate() {
-    failIf(this.value <= 0, "Trigger must be between 1 and 100");
-    failIf(this.value > 100, "Trigger must be between 1 and 100");
+    failIf(this.value < -1, "Trigger must be greater than 0");
   }
 }

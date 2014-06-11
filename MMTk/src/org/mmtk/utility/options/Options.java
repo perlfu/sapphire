@@ -22,6 +22,9 @@ public final class Options {
 
   /* Other options */
   public static ConcurrentTrigger concurrentTrigger;
+  public static ConcurrentTriggerMethod concurrentTriggerMethod;
+  public static ConcurrentCopyMethod concurrentCopyMethod;
+  public static ConcurrentCopyTransactionSize concurrentCopyTransactionSize;
   public static CycleFilterThreshold cycleFilterThreshold;
   public static CycleMetaDataLimit cycleMetaDataLimit;
   public static CycleTriggerThreshold cycleTriggerThreshold;
@@ -57,6 +60,7 @@ public final class Options {
   public static PrintPhaseStats printPhaseStats;
   public static ProtectOnRelease protectOnRelease;
   public static SanityCheck sanityCheck;
+  public static SapphireSTWPhase sapphireSTWPhase;
   public static StressFactor stressFactor;
   public static Threads threads;
   public static TraceRate traceRate;
