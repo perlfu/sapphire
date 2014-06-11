@@ -20,9 +20,9 @@ import org.jikesrvm.compilers.baseline.BaselineCompiler;
 import org.jikesrvm.compilers.baseline.BaselineOptions;
 import org.jikesrvm.compilers.common.RuntimeCompiler;
 import org.jikesrvm.mm.mminterface.MemoryManager;
-
 import static org.jikesrvm.runtime.SysCall.sysCall;
 import org.jikesrvm.scheduler.RVMThread;
+import org.jikesrvm.scheduler.TestThread;
 import org.vmmagic.pragma.NonReplicatingAllocation;
 
 /**
@@ -80,7 +80,9 @@ public class CommandLineArgs {
     BOOTCLASSPATH_P_ARG,
     BOOTCLASSPATH_A_ARG,
     BOOTSTRAP_CLASSES_ARG,
-    AVAILABLE_PROCESSORS_ARG
+    AVAILABLE_PROCESSORS_ARG,
+    TEST_HELP_ARG,
+    TEST_ARG
   }
 
   /** Represent a single command line prefix */
@@ -209,6 +211,10 @@ public class CommandLineArgs {
                                             new Prefix("-X:vm:help$", PrefixType.HELP_ARG),
                                             new Prefix("-X:vm$", PrefixType.HELP_ARG),
                                             new Prefix("-X:vm:", PrefixType.ARG),
+                                            
+                                            new Prefix("-X:test:help$", PrefixType.TEST_HELP_ARG),
+                                            new Prefix("-X:test$", PrefixType.TEST_HELP_ARG),
+                                            new Prefix("-X:test:", PrefixType.TEST_ARG),
 
                                             /* Silently ignored */
                                             new Prefix("-Xverify", PrefixType.VERIFY_ARG),
@@ -651,6 +657,16 @@ public class CommandLineArgs {
             VM.sysWriteln("  Illegal command line argument prefix '-X:opt'");
             VM.sysExit(VM.EXIT_STATUS_BOGUS_COMMAND_LINE_ARG);
           }
+          break;
+          
+          // ----------------------------------------------------
+          // Configure test thread class
+          // ----------------------------------------------------
+        case TEST_HELP_ARG:
+          TestThread.printHelp("-X:test:");
+          break;
+        case TEST_ARG:
+          TestThread.processCommandLineArg("-X:test:", arg);
           break;
 
           // -------------------------------------------------------------------

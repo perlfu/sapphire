@@ -41,6 +41,7 @@ import org.jikesrvm.scheduler.Lock;
 import org.jikesrvm.scheduler.MainThread;
 import org.jikesrvm.scheduler.Synchronization;
 import org.jikesrvm.scheduler.RVMThread;
+import org.jikesrvm.scheduler.TestThread;
 import org.jikesrvm.runtime.FileSystem;
 import org.jikesrvm.tuningfork.TraceEngine;
 import org.vmmagic.pragma.Entrypoint;
@@ -496,10 +497,18 @@ public class VM extends Properties implements Constants, ExitStatus {
     if (verboseBoot >= 1) VM.sysWriteln("Constructing mainThread");
     mainThread = new MainThread(applicationArguments);
 
+    // Lower main thread priority if required by test thread.
+    if (TestThread.hasPriority())
+      mainThread.setPriority(Thread.NORM_PRIORITY - TestThread.relatvePriority());
+    
     // Schedule "main" thread for execution.
     if (verboseBoot >= 1) VM.sysWriteln("Starting main thread");
     mainThread.start();
 
+    // Create and schedule test thread.
+    if (verboseBoot >= 1) VM.sysWriteln("Starting test thread");
+    (new TestThread()).start();
+    
     // End of boot thread.
     //
     if (VM.TraceThreads) RVMThread.trace("VM.boot", "completed - terminating");
@@ -2321,14 +2330,16 @@ public class VM extends Properties implements Constants, ExitStatus {
     handlePossibleRecursiveCallToSysFail(message);
 
     // print a traceback and die
-    if(!RVMThread.getCurrentThread().isCollectorThread()) {
-      RVMThread.traceback(message);
-    } else {
-      VM.sysWriteln("Died in GC:");
-      RVMThread.traceback(message);
-      VM.sysWriteln("Virtual machine state:");
-      RVMThread.dumpVirtualMachine();
-    }
+    if(RVMThread.getCurrentThread().isCollectorThread())
+      VM.sysWriteln("Died in Collector Thread:");
+    else if(RVMThread.getCurrentThread().isSystemThread())
+      VM.sysWriteln("Died in System Thread:");
+    else
+      VM.sysWriteln("Died in Mutator Thread:");
+    Space.printVMMap();
+    RVMThread.traceback(message);
+    VM.sysWriteln("Virtual machine state:");
+    RVMThread.dumpVirtualMachine();
     bugReportMessage();
     if (VM.runningVM) {
       VM.shutdown(EXIT_STATUS_SYSFAIL);
