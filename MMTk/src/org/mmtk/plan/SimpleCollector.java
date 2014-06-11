@@ -17,6 +17,7 @@ import org.mmtk.utility.options.Options;
 import org.mmtk.utility.sanitychecker.SanityCheckerLocal;
 
 import org.mmtk.vm.VM;
+import org.mmtk.vm.ReferenceProcessor.Semantics;
 
 import org.vmmagic.pragma.*;
 
@@ -71,12 +72,20 @@ public abstract class SimpleCollector extends ParallelCollector {
       return;
     }
 
+    if (phaseId == Simple.SOFT_REFS_RETAIN) {
+      if (primary) {
+        if (!Options.noReferenceTypes.getValue() && !Simple.isEmergencyCollection())
+          VM.softReferences.scan(getCurrentTrace(),global().isCurrentGCNursery(), true);
+      }
+      return;
+    }
+
     if (phaseId == Simple.SOFT_REFS) {
       if (primary) {
         if (Options.noReferenceTypes.getValue())
           VM.softReferences.clear();
         else
-          VM.softReferences.scan(getCurrentTrace(),global().isCurrentGCNursery());
+          VM.softReferences.scan(getCurrentTrace(),global().isCurrentGCNursery(), false);
       }
       return;
     }
@@ -86,7 +95,7 @@ public abstract class SimpleCollector extends ParallelCollector {
         if (Options.noReferenceTypes.getValue())
           VM.weakReferences.clear();
         else
-          VM.weakReferences.scan(getCurrentTrace(),global().isCurrentGCNursery());
+          VM.weakReferences.scan(getCurrentTrace(),global().isCurrentGCNursery(),false);
       }
       return;
     }
@@ -106,7 +115,7 @@ public abstract class SimpleCollector extends ParallelCollector {
         if (Options.noReferenceTypes.getValue())
           VM.phantomReferences.clear();
         else
-          VM.phantomReferences.scan(getCurrentTrace(),global().isCurrentGCNursery());
+          VM.phantomReferences.scan(getCurrentTrace(),global().isCurrentGCNursery(), false);
       }
       return;
     }

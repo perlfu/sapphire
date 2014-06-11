@@ -922,6 +922,22 @@ public abstract class MutatorContext implements Constants {
   }
 
   /**
+   * Write a Word during GC into toSpace. Take appropriate write barrier actions.
+   * <p>
+   * @param src The object into which the new reference will be stored
+   * @param slot The address into which the new reference will be stored.
+   * @param value The value of the new Word
+   * @param metaDataA A value that assists the host VM in creating a store
+   * @param metaDataB A value that assists the host VM in creating a store
+   * @param mode The context in which the store occurred
+   */
+  public void wordWriteDuringGC(ObjectReference src, Address slot, Word value, Word metaDataA, Word metaDataB, int mode) {
+    // Either: write barriers are used and this is overridden, or
+    // write barriers are not used and this is never called
+    if (VM.VERIFY_ASSERTIONS) VM.assertions._assert(false);
+  }
+
+  /**
    * Write an Address. Take appropriate write barrier actions.<p>
    *
    * <b>By default do nothing, override if appropriate.</b>
@@ -1243,6 +1259,33 @@ public abstract class MutatorContext implements Constants {
     // write barriers are not used and this is never called
     if (VM.VERIFY_ASSERTIONS) VM.assertions._assert(false);
     return false;
+  }
+
+  public boolean objectReferenceCompare(ObjectReference refA, ObjectReference refB) {
+    if (VM.VERIFY_ASSERTIONS) VM.assertions._assert(false);
+    return false;
+  }
+
+  /**
+   * Write a Address during GC into toSpace. Take appropriate write barrier actions.
+   * <p>
+   * @param src The object into which the new reference will be stored
+   * @param slot The address into which the new reference will be stored.
+   * @param value The value of the new Address
+   * @param metaDataA A value that assists the host VM in creating a store
+   * @param metaDataB A value that assists the host VM in creating a store
+   * @param mode The context in which the store occurred
+   */
+  public void addressWriteDuringGC(ObjectReference src, Address slot, Address value, Word metaDataA, Word metaDataB, int mode) {
+    if (VM.VERIFY_ASSERTIONS) VM.assertions._assert(false);
+  }
+
+  public void addressWriteToReferenceTable(ObjectReference src, Address slot, Address value, Word metaDataA, Word metaDataB, int mode) {
+    if (VM.VERIFY_ASSERTIONS) VM.assertions._assert(false);
+  }
+  
+  public void javaLangReferenceWriteBarrier(ObjectReference reference, Address slot, ObjectReference referent, Word metaDataA, Word metaDataB, int mode) {
+    if (VM.VERIFY_ASSERTIONS) VM.assertions._assert(false);
   }
 
   /**

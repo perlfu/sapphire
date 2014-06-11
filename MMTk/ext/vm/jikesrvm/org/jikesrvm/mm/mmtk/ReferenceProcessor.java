@@ -24,6 +24,7 @@ import org.jikesrvm.mm.mminterface.DebugUtil;
 import org.jikesrvm.mm.mminterface.Selected;
 import org.jikesrvm.runtime.Entrypoints;
 import org.jikesrvm.runtime.Magic;
+import org.jikesrvm.runtime.Statics;
 import org.jikesrvm.scheduler.RVMThread;
 
 import java.lang.ref.Reference;
@@ -31,6 +32,8 @@ import java.lang.ref.SoftReference;
 import java.lang.ref.WeakReference;
 import java.lang.ref.PhantomReference;
 
+import static org.jikesrvm.mm.mminterface.Barriers.NEEDS_OBJECT_PUTFIELD_BARRIER;
+import static org.jikesrvm.mm.mminterface.Barriers.NEEDS_JAVA_LANG_REFERENCE_WRITE_BARRIER;
 
 /**
  * This class manages SoftReferences, WeakReferences, and
@@ -277,6 +280,14 @@ public final class ReferenceProcessor extends org.mmtk.vm.ReferenceProcessor {
   public void forward(TraceLocal trace, boolean nursery) {
     if (VM.VerifyAssertions) VM._assert(unforwardedReferences != null);
     if (TRACE) VM.sysWriteln("Starting ReferenceGlue.forward(",semanticsStr,")");
+
+    if (Selected.Constraints.get().onTheFlyCollector()) {
+      lock.acquire();
+      /* In on-the-fly collector, unforwardedReference which is captured in scan()
+       * may be stale.
+       */
+      unforwardedReferences = references;
+    }
     if (TRACE_DETAIL) {
       VM.sysWrite(semanticsStr," Reference table is ",
           Magic.objectAsAddress(references));
@@ -287,12 +298,13 @@ public final class ReferenceProcessor extends org.mmtk.vm.ReferenceProcessor {
       if (TRACE_DETAIL) VM.sysWrite("slot ",i,": ");
       ObjectReference reference = unforwardedReferences.get(i).toObjectReference();
       if (TRACE_DETAIL) VM.sysWriteln("forwarding ",reference);
-      setReferent(reference, trace.getForwardedReferent(getReferent(reference)));
+      setReferentDuringGC(reference, trace.getForwardedReferent(getReferent(reference)));
       ObjectReference newReference = trace.getForwardedReference(reference);
       unforwardedReferences.set(i, newReference.toAddress());
     }
     if (TRACE) VM.sysWriteln("Ending ReferenceGlue.forward(",semanticsStr,")");
     unforwardedReferences = null;
+    if (Selected.Constraints.get().onTheFlyCollector()) lock.release();
   }
 
   @Override
@@ -311,9 +323,11 @@ public final class ReferenceProcessor extends org.mmtk.vm.ReferenceProcessor {
    * TODO parallelise this code
    *
    * @param nursery Scan only the newly created references
+   * @param if true, retain referent regardless of its reachability
    */
   @Override
-  public void scan(TraceLocal trace, boolean nursery) {
+  public void scan(TraceLocal trace, boolean nursery, boolean retainUnreachable) {
+    if (Selected.Constraints.get().onTheFlyCollector()) lock.acquire();
     unforwardedReferences = references;
 
     if (TRACE) VM.sysWriteln("Starting ReferenceGlue.scan(",semanticsStr,")");
@@ -324,7 +338,7 @@ public final class ReferenceProcessor extends org.mmtk.vm.ReferenceProcessor {
       ObjectReference reference = getReference(fromIndex);
 
       /* Determine liveness (and forward if necessary) the reference */
-      ObjectReference newReference = processReference(trace,reference);
+      ObjectReference newReference = processReference(trace, reference, retainUnreachable);
       if (!newReference.isNull()) {
         setReference(toIndex++,newReference);
         if (TRACE_DETAIL) {
@@ -340,8 +354,11 @@ public final class ReferenceProcessor extends org.mmtk.vm.ReferenceProcessor {
       VM.sysWrite(semanticsStr);
       VM.sysWriteln(" references: ",maxIndex," -> ",toIndex);
     }
-    nurseryIndex = maxIndex = toIndex;
-
+    maxIndex = toIndex;
+    if (!retainUnreachable)
+      nurseryIndex = toIndex;
+    if (Selected.Constraints.get().onTheFlyCollector()) lock.release();
+    
     /* flush out any remset entries generated during the above activities */
     Selected.Mutator.get().flushRememberedSets();
     if (TRACE) VM.sysWriteln("Ending ReferenceGlue.scan(",semanticsStr,")");
@@ -411,14 +428,35 @@ public final class ReferenceProcessor extends org.mmtk.vm.ReferenceProcessor {
    * @param reference the address of the reference. This may or may not
    * be the address of a heap object, depending on the VM.
    * @param trace the thread local trace element.
+   * @param retainUnreachable if this is true, retain referent even if it is unreachable
    */
   @UninterruptibleNoWarn("Call out to ReferenceQueue API")
-  public ObjectReference processReference(TraceLocal trace, ObjectReference reference) {
+  public ObjectReference processReference(TraceLocal trace, ObjectReference reference, boolean retainUnreachable) {
     if (VM.VerifyAssertions) VM._assert(!reference.isNull());
 
     if (TRACE_DETAIL) {
       VM.sysWrite("Processing reference: ",reference);
     }
+
+    if (retainUnreachable) {
+      if (!trace.isLive(reference)) {
+        /*
+         * Some unreachable references may resurrect because they may be reachable from
+         * retained referents of other references.
+         */
+        return reference;
+      }
+
+      ObjectReference referent = getReferent(reference);
+      if (!referent.isNull())
+        trace.retainReferent(referent);
+      if (TRACE_DETAIL) {
+        VM.sysWriteln(" ~> ", referent.toAddress(), " (retained)");
+      }
+      return reference;
+    }
+
+    /* clear if referent is unreachable */
     /*
      * If the reference is dead, we're done with it. Let it (and
      * possibly its referent) be garbage-collected.
@@ -453,24 +491,6 @@ public final class ReferenceProcessor extends org.mmtk.vm.ReferenceProcessor {
 
     if (TRACE_DETAIL)  VM.sysWrite(" => ",newReference);
 
-    if (semantics == Semantics.SOFT) {
-      /*
-       * Unless we've completely run out of memory, we keep
-       * softly reachable objects alive.
-       */
-      if (!Plan.isEmergencyCollection()) {
-        if (TRACE_DETAIL) VM.sysWrite(" (soft) ");
-        trace.retainReferent(oldReferent);
-      }
-    } else if (semantics == Semantics.PHANTOM) {
-      /*
-       * The spec says we should forward the reference.  Without unsafe uses of
-       * reflection, the application can't tell the difference whether we do or not,
-       * so we don't forward the reference.
-       */
-//    trace.retainReferent(oldReferent);
-    }
-
     if (trace.isLive(oldReferent)) {
       if (VM.VerifyAssertions) {
         if (!DebugUtil.validRef(oldReferent)) {
@@ -491,6 +511,7 @@ public final class ReferenceProcessor extends org.mmtk.vm.ReferenceProcessor {
         if (!DebugUtil.validRef(newReferent)) {
           VM.sysWriteln("Error forwarding reference object.");
           DebugUtil.dumpRef(oldReferent);
+          VM.sysWriteln("reference = ", reference);
           VM.sysFail("Invalid reference");
         }
         VM._assert(trace.isLive(newReferent));
@@ -505,7 +526,7 @@ public final class ReferenceProcessor extends org.mmtk.vm.ReferenceProcessor {
        */
 
       /* Update the referent */
-      setReferent(newReference, newReferent);
+      setReferentDuringGC(newReference, newReferent);
       return newReference;
     } else {
       /* Referent is unreachable. Clear the referent and enqueue the reference object. */
@@ -527,7 +548,7 @@ public final class ReferenceProcessor extends org.mmtk.vm.ReferenceProcessor {
    * occur.
    */
   protected void clearReferent(ObjectReference newReference) {
-    setReferent(newReference, ObjectReference.nullReference());
+    setReferentDuringGC(newReference, ObjectReference.nullReference());
   }
 
   /***********************************************************************
@@ -553,7 +574,41 @@ public final class ReferenceProcessor extends org.mmtk.vm.ReferenceProcessor {
    * @param referent the referent object reference.
    */
   protected void setReferent(ObjectReference ref, ObjectReference referent) {
-    ref.toAddress().store(referent, Entrypoints.referenceReferentField.getOffset());
+    if (Options.noReferenceTypes.getValue()) {
+      if (NEEDS_OBJECT_PUTFIELD_BARRIER)
+        // treat as a objectReference write
+        org.jikesrvm.mm.mminterface.Barriers.objectFieldWrite(ref.toObject(), referent.toObject(),
+            Entrypoints.referenceReferentField.getOffset(), 0);
+      else
+        // treat as a plain Address write - it is up to the collector to ensure we process the references correctly
+        org.jikesrvm.mm.mminterface.Barriers.addressFieldWrite(ref.toObject(), referent.toAddress(),
+            Entrypoints.referenceReferentField.getOffset(), 0);
+    } else {
+      if (NEEDS_JAVA_LANG_REFERENCE_WRITE_BARRIER)
+        // needs special treatment
+        org.jikesrvm.mm.mminterface.Barriers.javaLangReferenceWriteBarrier(ref, referent,
+            Entrypoints.referenceReferentField.getOffset(), 0);
+      else
+        // treat as a plain Address write - it is up to the collector to ensure we process the references correctly
+        org.jikesrvm.mm.mminterface.Barriers.addressFieldWrite(ref.toObject(), referent.toAddress(),
+            Entrypoints.referenceReferentField.getOffset(), 0);
+    }
+  }
+
+  protected void setReferentDuringGC(ObjectReference ref, ObjectReference referent) {
+    if (NEEDS_OBJECT_PUTFIELD_BARRIER) {
+      if (Options.noReferenceTypes.getValue()) {
+        // treat as a objectReference write
+        org.jikesrvm.mm.mminterface.Barriers.objectFieldWrite(ref.toObject(), referent.toObject(),
+            Entrypoints.referenceReferentField.getOffset(), 0);
+      } else {
+        // write raw Address avoiding certain Sapphire assertions because ref might be in toSpace
+      org.jikesrvm.mm.mminterface.Barriers.addressFieldWriteDuringGC(ref.toObject(), referent.toAddress(),
+          Entrypoints.referenceReferentField.getOffset(), 0);
+      }
+    } else {
+      ref.toAddress().store(referent, Entrypoints.referenceReferentField.getOffset());
+    }
   }
 
   /***********************************************************************

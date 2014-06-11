@@ -39,6 +39,9 @@ public final class ScanStatics implements Constants {
    * 64bit aligned on 64bit architectures
    */
   private static final int chunkSizeMask = 0xFFFFFFFF - (refSlotSize - 1);
+  
+  private static int numberOfReferencesToBeScanned;
+  
   /**
    * Scan static variables (JTOC) for object references.  Executed by
    * all GC threads in parallel, with each doing a portion of the

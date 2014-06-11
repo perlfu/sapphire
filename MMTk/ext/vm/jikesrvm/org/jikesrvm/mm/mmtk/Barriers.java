@@ -627,4 +627,10 @@ public class Barriers extends org.mmtk.vm.Barriers implements SizeConstants {
       dst[index] = value;
     }
   }
+  
+  @Inline
+  @Override
+  public final void addressWriteToReferenceTable(ObjectReference src, Address value, Word offset, Word location, int mode) {
+    Magic.setAddressAtOffset(src, offset.toOffset(), value);
+  }
 }

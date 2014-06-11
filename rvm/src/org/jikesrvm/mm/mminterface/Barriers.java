@@ -1391,4 +1391,44 @@ public class Barriers implements org.mmtk.utility.Constants {
       VM._assert(VM.NOT_REACHED);
     return false;
   }
+
+  /**
+   * Barrier for writes of Address into fields of instances (ie putfield). Whilst a GC is taking place (bypasses certain assertions)
+   * @param ref the object which is the subject of the putfield
+   * @param value the new value for the field
+   * @param offset the offset of the field to be modified
+   * @param locationMetadata an int that encodes the source location being modified
+   */
+  @Inline
+  public static void addressFieldWriteDuringGC(Object ref, Address value, Offset offset, int locationMetadata) {
+    if (NEEDS_WORD_PUTFIELD_BARRIER) {
+      ObjectReference src = ObjectReference.fromObject(ref);
+      Selected.Mutator.get().addressWriteDuringGC(src, src.toAddress().plus(offset), value, offset.toWord(),
+          Word.fromIntZeroExtend(locationMetadata), INSTANCE_FIELD);
+    } else if (VM.VerifyAssertions)
+      VM._assert(false);
+  }
+  
+  public static final boolean NEEDS_REFERENCE_TABLE_WRITE_BARRIER = Selected.Constraints.get().needsReferenceTableWriteBarrier();
+  
+  @Inline
+  public static void addressWriteToReferenceTable(AddressArray ref, int index, Address value) {
+    if (NEEDS_REFERENCE_TABLE_WRITE_BARRIER) {
+      ObjectReference array = ObjectReference.fromObject(ref);
+      Offset offset = Offset.fromIntZeroExtend(index << MemoryManagerConstants.LOG_BYTES_IN_ADDRESS);
+      Selected.Mutator.get().addressWriteToReferenceTable(array, array.toAddress().plus(offset), value, offset.toWord(), Word.zero(), ARRAY_ELEMENT);
+    } else if (VM.VerifyAssertions)
+      VM._assert(false);
+  }
+
+  // concurrent moving gc needs this barrier as well
+  public static final boolean NEEDS_JAVA_LANG_REFERENCE_WRITE_BARRIER = (Selected.Constraints.get().onTheFlyCollector() && Selected.Constraints.get().movesObjects());
+  
+  @Inline
+  public static void javaLangReferenceWriteBarrier(ObjectReference reference, ObjectReference referent, Offset offset, int localtionMetadata) {
+    if (NEEDS_JAVA_LANG_REFERENCE_WRITE_BARRIER) {
+      Selected.Mutator.get().javaLangReferenceWriteBarrier(reference, reference.toAddress().plus(offset), referent, offset.toWord(), Word.fromIntZeroExtend(localtionMetadata), INSTANCE_FIELD);
+    } else if (VM.VerifyAssertions)
+      VM._assert(false);
+  }
 }

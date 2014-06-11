@@ -14,6 +14,7 @@ package java.lang.ref;
 
 import org.jikesrvm.mm.mminterface.MemoryManager;
 import org.vmmagic.pragma.ReferenceFieldsVary;
+import org.vmmagic.pragma.Uninterruptible;
 
 /**
  * Implementation of java.lang.ref.WeakReference for JikesRVM.
@@ -31,5 +32,11 @@ public class WeakReference<T> extends Reference<T> {
   public WeakReference(T referent, ReferenceQueue<T> q) {
     super(referent, q);
     MemoryManager.addWeakReference(this,referent);
+  }
+
+  @Override
+  @Uninterruptible
+  public boolean isSoft() {
+    return false;
   }
 }

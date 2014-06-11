@@ -147,6 +147,86 @@ public class ScanBootImage implements Constants {
     }
   }
 
+
+  @Inline
+  @Uninterruptible
+  public static void onTheFlyScanBootImage(TraceLocal trace) {
+    /* establish sentinals in map & image */
+    Address mapStart = BootRecord.the_boot_record.bootImageRMapStart;
+    Address mapEnd = BootRecord.the_boot_record.bootImageRMapEnd;
+    Address imageStart = BootRecord.the_boot_record.bootImageDataStart;
+
+    /* figure out striding */
+    CollectorContext collector = RVMThread.getCurrentThread().getCollectorContext();
+    int stride = collector.parallelWorkerCount()<<LOG_CHUNK_BYTES;
+    int start = collector.parallelWorkerOrdinal()<<LOG_CHUNK_BYTES;
+    Address cursor = mapStart.plus(start);
+
+    /* statistics */
+    roots = 0;
+    refs = 0;
+
+    /* process chunks in parallel till done */
+    while (cursor.LT(mapEnd)) {
+      onTheFlyProcessChunk(cursor, imageStart, mapStart, mapEnd, trace);
+      cursor = cursor.plus(stride);
+    }
+
+    /* print some debugging stats */
+    if (DEBUG) {
+      Log.write("<boot image");
+      Log.write(" roots: "); Log.write(roots);
+      Log.write(" refs: "); Log.write(refs);
+      Log.write(">");
+    }
+  }
+
+  @Inline
+  @Uninterruptible
+  private static void onTheFlyProcessChunk(Address chunkStart, Address imageStart,
+      Address mapStart, Address mapEnd, TraceLocal trace) {
+    int value;
+    Offset offset = Offset.zero();
+    Address cursor = chunkStart;
+    while ((value = (cursor.loadByte() & 0xff)) != 0) {
+      /* establish the offset */
+      if ((value & LONGENCODING_MASK) != 0) {
+        offset = decodeLongEncoding(cursor);
+        cursor = cursor.plus(LONGENCODING_OFFSET_BYTES);
+      } else {
+        offset = offset.plus(value & 0xfc);
+        cursor = cursor.plus(1);
+      }
+      /* figure out the length of the run, if any */
+      int runlength = 0;
+      if ((value & RUN_MASK) != 0) {
+        runlength = cursor.loadByte() & 0xff;
+        cursor = cursor.plus(1);
+      }
+      /* enqueue the specified slot or slots */
+      if (VM.VerifyAssertions) VM._assert(isAddressAligned(offset));
+      Address slot = imageStart.plus(offset);
+      if (DEBUG) refs++;
+      if (!FILTER || slot.loadAddress().GT(mapEnd)) {
+        if (DEBUG) roots++;
+        trace.atomicProcessRootEdge(slot, false);
+      }
+      if (runlength != 0) {
+        for (int i = 0; i < runlength; i++) {
+          offset = offset.plus(BYTES_IN_ADDRESS);
+          slot = imageStart.plus(offset);
+          if (VM.VerifyAssertions) VM._assert(isAddressAligned(slot));
+          if (DEBUG) refs++;
+          if (!FILTER || slot.loadAddress().GT(mapEnd)) {
+            if (DEBUG) roots++;
+            if (ScanThread.VALIDATE_REFS) checkReference(slot);
+            trace.atomicProcessRootEdge(slot, false);
+          }
+        }
+      }
+    }
+  }
+
   /**
    * Check that a reference encountered during scanning is valid.  If
    * the reference is invalid, dump stack and die.

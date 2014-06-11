@@ -35,6 +35,8 @@ public abstract class FinalizableProcessor {
    */
   public abstract void scan(TraceLocal trace, boolean nursery);
 
+  public abstract void triggerFinalize();
+
   /**
    * Iterate over and forward entries in the table.
    */

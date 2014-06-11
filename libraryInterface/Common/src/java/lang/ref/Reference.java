@@ -12,8 +12,8 @@
  */
 package java.lang.ref;
 
-import static org.jikesrvm.mm.mminterface.Barriers.NEEDS_OBJECT_GETFIELD_BARRIER;
 import static org.jikesrvm.mm.mminterface.Barriers.NEEDS_OBJECT_PUTFIELD_BARRIER;
+import static org.jikesrvm.mm.mminterface.Barriers.NEEDS_OBJECT_GETFIELD_BARRIER;
 
 import org.jikesrvm.classloader.RVMType;
 import org.jikesrvm.mm.mminterface.Barriers;
@@ -76,6 +76,13 @@ public abstract class Reference<T> {
   }
 
   /**
+   * Returns if this object is soft reference or not
+   * @return
+   */
+  @Uninterruptible
+  abstract boolean isSoft();
+
+  /**
    * Takes the passed address and (atomically) performs any read barrier actions
    * before returning it as an object.
    *
@@ -99,7 +106,7 @@ public abstract class Reference<T> {
         Object ref = Magic.addressAsObject(tmp);
 
         if (Barriers.NEEDS_JAVA_LANG_REFERENCE_READ_BARRIER) {
-          ref = Barriers.javaLangReferenceReadBarrier(ref);
+          ref = Barriers.javaLangReferenceReadBarrier(ref, isSoft());
         }
         return ref;
       }

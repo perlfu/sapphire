@@ -13,6 +13,7 @@
 package org.jikesrvm.compilers.baseline;
 
 import org.jikesrvm.VM;
+import org.vmmagic.pragma.NonMoving;
 import org.vmmagic.pragma.Uninterruptible;
 
 /**
@@ -23,6 +24,7 @@ import org.vmmagic.pragma.Uninterruptible;
  * internal pointers or internal/external pointers may be handled separately.
  */
 @Uninterruptible
+@NonMoving
 final class UnusualMaps {
 
   /** For maps of JSR subroutine locations index into the normal reference map of where the return address can be located */

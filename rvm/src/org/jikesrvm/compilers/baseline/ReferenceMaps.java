@@ -20,7 +20,9 @@ import org.jikesrvm.classloader.NormalMethod;
 import org.jikesrvm.classloader.TypeReference;
 import org.jikesrvm.scheduler.SpinLock;
 import org.vmmagic.pragma.Interruptible;
+import org.vmmagic.pragma.NonMovingAllocation;
 import org.vmmagic.pragma.Uninterruptible;
+import org.vmmagic.unboxed.ObjectReference;
 import org.vmmagic.unboxed.Offset;
 
 /**
@@ -733,6 +735,7 @@ public final class ReferenceMaps implements BaselineConstants {
    * @param jsrSiteMap   unusualMap to be added to array
    */
   @Interruptible
+  @NonMovingAllocation  // these maps may be accessed during GC
   private int addUnusualMap(UnusualMaps jsrSiteMap) {
     if (jsrInfo.unusualMaps == null) {
       // start up code
@@ -917,6 +920,7 @@ public final class ReferenceMaps implements BaselineConstants {
    * get Next free word in referencemaps for GC call sites
    */
   @Interruptible
+  @NonMovingAllocation // these maps may be accessed during GC
   private int getNextMapElement() {
     if (jsrInfo.unusualReferenceMaps == null) {
       // start up code

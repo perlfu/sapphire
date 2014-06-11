@@ -850,6 +850,16 @@ public abstract class Plan implements Constants {
     return slot.loadObjectReference();
   }
 
+  @Inline
+  public ObjectReference prepareObjectReference(Address slot) {
+    return slot.loadObjectReference();
+  }
+
+  @Inline
+  public boolean attemptObjectReference(Address slot, ObjectReference old, ObjectReference value) {
+    return slot.attempt(old, value);
+  }
+  
   /****************************************************************************
    * Collection.
    */

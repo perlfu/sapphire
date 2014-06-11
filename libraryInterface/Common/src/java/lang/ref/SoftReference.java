@@ -14,6 +14,7 @@ package java.lang.ref;
 
 import org.jikesrvm.mm.mminterface.MemoryManager;
 import org.vmmagic.pragma.ReferenceFieldsVary;
+import org.vmmagic.pragma.Uninterruptible;
 
 /**
  * Implementation of java.lang.ref.SoftReference for JikesRVM.
@@ -29,5 +30,11 @@ public class SoftReference<T> extends Reference<T> {
   public SoftReference(T referent, ReferenceQueue<T> q) {
     super(referent, q);
     MemoryManager.addSoftReference(this, referent);
+  }
+
+  @Override
+  @Uninterruptible
+  public boolean isSoft() {
+    return true;
   }
 }

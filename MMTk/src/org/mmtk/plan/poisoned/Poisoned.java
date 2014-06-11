@@ -65,4 +65,16 @@ public class Poisoned extends MS {
   public ObjectReference loadObjectReference(Address slot) {
     return depoison(slot.loadWord());
   }
+  
+  @Override
+  @Inline
+  public ObjectReference prepareObjectReference(Address slot) {
+    return depoison(slot.loadWord());
+  }
+
+  @Override
+  @Inline
+  public boolean attemptObjectReference(Address slot, ObjectReference old, ObjectReference value) {
+    return slot.attempt(poison(old), poison(value));
+  }
 }

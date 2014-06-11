@@ -26,6 +26,12 @@ public class PhantomReference<T> extends Reference<T> {
     MemoryManager.addPhantomReference(this,referent);
   }
 
+  @Override
+  @Uninterruptible
+  public boolean isSoft() {
+    return false;
+  }
+
   /**
    * Returns the object this reference refers to. Phantom references
    * always return <code>null</code>.

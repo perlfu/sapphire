@@ -71,6 +71,12 @@ public final class FinalizableProcessor extends org.mmtk.vm.FinalizableProcessor
   /** Last object ready to be finalized */
   private volatile int lastReadyIndex = 0;
 
+  /** Last index + 1 for objects being getting ready to be finalized (for on-the-fly GC).
+   * This is needed to prevent the finalizer thread from taking untraced, thus yet to be ready,
+   * objects from the readyForFinalize array.
+   */
+  private int lastNewReadyIndex = 0;  // do not need to be volatile
+  
   /**
    * Create a new table.
    */
@@ -96,7 +102,7 @@ public final class FinalizableProcessor extends org.mmtk.vm.FinalizableProcessor
       }
 
       if (maxIndex>=freeReady()) {
-        newReadyForFinalizeSize=table.length() + countReady();
+        newReadyForFinalizeSize=table.length() + countReady() + countNewReady();
         if (newReadyForFinalizeSize<=readyForFinalize.length) {
           newReadyForFinalizeSize=-1;
         }
@@ -121,21 +127,28 @@ public final class FinalizableProcessor extends org.mmtk.vm.FinalizableProcessor
       }
 
       if (maxIndex>=freeReady() && newReadyForFinalize!=null) {
+        int i = nextReadyIndex;
         int j = 0;
-        for(int i=nextReadyIndex; i < lastReadyIndex && i < readyForFinalize.length; i++) {
+        while (i != lastReadyIndex) {
           newReadyForFinalize[j++] = readyForFinalize[i];
-        }
-        if (lastReadyIndex < nextReadyIndex) {
-          for(int i=0; i < lastReadyIndex; i++) {
-            newReadyForFinalize[j++] = readyForFinalize[i];
-          }
+          if (++i >= readyForFinalize.length)
+            i = 0;
         }
         lastReadyIndex = j;
+        while (i != lastNewReadyIndex) {
+          newReadyForFinalize[j++] = readyForFinalize[i];
+          if (++i >= readyForFinalize.length)
+            i = 0;
+        }
+        lastNewReadyIndex = j;
         nextReadyIndex = 0;
         readyForFinalize = newReadyForFinalize;
       }
     }
-    table.set(maxIndex++, Magic.objectAsAddress(object));
+    if (Selected.Constraints.get().needsReferenceTableWriteBarrier())
+      org.jikesrvm.mm.mminterface.Barriers.addressWriteToReferenceTable(table, maxIndex++, Magic.objectAsAddress(object));
+    else
+      table.set(maxIndex++, Magic.objectAsAddress(object));
     lock.release();
   }
 
@@ -156,10 +169,12 @@ public final class FinalizableProcessor extends org.mmtk.vm.FinalizableProcessor
    */
   @Override
   public void forward(TraceLocal trace, boolean nursery) {
+    if (Selected.Constraints.get().onTheFlyCollector()) lock.acquire();
     for (int i=0 ; i < maxIndex; i++) {
       ObjectReference ref = table.get(i).toObjectReference();
       table.set(i, trace.getForwardedFinalizable(ref).toAddress());
     }
+    if (Selected.Constraints.get().onTheFlyCollector()) lock.release();
   }
 
   /**
@@ -177,6 +192,7 @@ public final class FinalizableProcessor extends org.mmtk.vm.FinalizableProcessor
   @Override
   @UninterruptibleNoWarn
   public void scan(TraceLocal trace, boolean nursery) {
+    if (Selected.Constraints.get().onTheFlyCollector()) lock.acquire();
     int toIndex = nursery ? nurseryIndex : 0;
 
     for (int fromIndex = toIndex; fromIndex < maxIndex; fromIndex++) {
@@ -192,12 +208,26 @@ public final class FinalizableProcessor extends org.mmtk.vm.FinalizableProcessor
       ref = trace.retainForFinalize(ref);
 
       /* Add to object table */
-      Offset offset = Word.fromIntZeroExtend(lastReadyIndex).lsh(LOG_BYTES_IN_ADDRESS).toOffset();
+      Offset offset = Word.fromIntZeroExtend(lastNewReadyIndex).lsh(LOG_BYTES_IN_ADDRESS).toOffset();
       Selected.Plan.get().storeObjectReference(Magic.objectAsAddress(readyForFinalize).plus(offset), ref);
-      lastReadyIndex = (lastReadyIndex + 1) % readyForFinalize.length;
+      lastNewReadyIndex = (lastNewReadyIndex + 1) % readyForFinalize.length;
     }
     nurseryIndex = maxIndex = toIndex;
+    if (Selected.Constraints.get().onTheFlyCollector()) lock.release();
+    
+    if (!Selected.Constraints.get().onTheFlyCollector()) {
+      lastReadyIndex = lastNewReadyIndex;
+      /* Possible schedule finalizers to run */
+      Collection.scheduleFinalizerThread();
+    }
+  }
 
+  /*
+   * This method is for on-the-fly GC
+   */
+  @Override
+  public void triggerFinalize() {
+    lastReadyIndex = lastNewReadyIndex;
     /* Possible schedule finalizers to run */
     Collection.scheduleFinalizerThread();
   }
@@ -238,12 +268,16 @@ public final class FinalizableProcessor extends org.mmtk.vm.FinalizableProcessor
   public int countReady() {
     return ((lastReadyIndex - nextReadyIndex) + readyForFinalize.length) % readyForFinalize.length;
   }
+  
+  public int countNewReady() {
+    return ((lastNewReadyIndex - lastReadyIndex) + readyForFinalize.length) % readyForFinalize.length;
+  }
 
   /**
    * The number of entries ready to be finalized.
    */
   public int freeReady() {
-    return readyForFinalize.length - countReady();
+    return readyForFinalize.length - countReady() - countNewReady();
   }
 
   /***********************************************************************
