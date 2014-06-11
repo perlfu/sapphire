@@ -41,7 +41,6 @@ public final class MethodReference extends MemberReference {
    * Find or create a method reference
    * @see MemberReference#findOrCreate(TypeReference, Atom, Atom)
    */
-  @Pure
   public static MethodReference findOrCreate(TypeReference tRef, Atom mn, Atom md) {
     return MemberReference.findOrCreate(tRef, mn, md).asMethodReference();
   }

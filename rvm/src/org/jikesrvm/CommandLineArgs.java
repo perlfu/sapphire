@@ -23,6 +23,7 @@ import org.jikesrvm.mm.mminterface.MemoryManager;
 
 import static org.jikesrvm.runtime.SysCall.sysCall;
 import org.jikesrvm.scheduler.RVMThread;
+import org.vmmagic.pragma.NonReplicatingAllocation;
 
 /**
  * Command line option processing iwth arbitrary prefix support.

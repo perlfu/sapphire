@@ -14,6 +14,7 @@ package java.lang.ref;
 
 import org.jikesrvm.mm.mminterface.MemoryManager;
 import org.vmmagic.pragma.ReferenceFieldsVary;
+import org.vmmagic.pragma.Uninterruptible;
 
 /**
  * Implementation of java.lang.ref.PhantomReference for JikesRVM.

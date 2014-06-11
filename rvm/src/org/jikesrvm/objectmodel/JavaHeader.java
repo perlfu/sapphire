@@ -520,7 +520,7 @@ public class JavaHeader implements JavaHeaderConstants {
 
   /** Install a new hashcode (only used if !ADDRESS_BASED_HASHING) */
   @NoInline
-  @Interruptible
+  @Uninterruptible
   protected static int installHashCode(Object o) {
     Word hashCode;
     do {

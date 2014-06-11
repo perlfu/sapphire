@@ -264,6 +264,16 @@ public abstract class Simple extends Plan implements Constants {
   }
 
   /**
+   * Perform a (global) unpreemptible collection phase.
+   */
+  @Unpreemptible
+  public void unpreemptibleCollectionPhase(short phaseId) {
+    Log.write("Unpreemptible Global phase "); Log.write(Phase.getName(phaseId));
+    Log.writeln(" not handled.");
+    VM.assertions.fail("Unpreemptible Global phase not handled!");
+  }
+
+  /*
    * Update the nursery zeroing approach based on option settings.
    *
    * @param nurserySpace The space to apply the changes to.

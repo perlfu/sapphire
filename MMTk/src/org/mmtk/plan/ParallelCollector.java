@@ -52,6 +52,7 @@ public abstract class ParallelCollector extends CollectorContext {
   }
 
   /** Perform a single garbage collection */
+  @Unpreemptible
   public void collect() {
     VM.assertions.fail("Collector has not implemented collectionPhase");
   }

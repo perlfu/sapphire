@@ -23,6 +23,7 @@ import org.mmtk.utility.deque.ObjectReferenceDeque;
 import org.mmtk.vm.VM;
 import org.vmmagic.pragma.Inline;
 import org.vmmagic.pragma.Uninterruptible;
+import org.vmmagic.pragma.Unpreemptible;
 import org.vmmagic.unboxed.ObjectReference;
 
 /**
@@ -79,6 +80,7 @@ public abstract class RCBaseCollector extends StopTheWorldCollector {
   /**
    * {@inheritDoc}
    */
+  @Unpreemptible
   @Override
   public void collect() {
     if (RCBase.BUILD_FOR_GENRC) Phase.beginNewPhaseStack(Phase.scheduleComplex(global().genRCCollection));

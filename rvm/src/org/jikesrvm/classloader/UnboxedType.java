@@ -323,6 +323,7 @@ public final class UnboxedType extends RVMType implements Constants, ClassLoader
    */
   @Override
   @Pure
+  @Uninterruptible
   public RVMField[] getInstanceFields() {
     return emptyVMField;
   }

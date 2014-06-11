@@ -18,6 +18,7 @@ import org.jikesrvm.runtime.Magic;
 import org.jikesrvm.runtime.Entrypoints;
 import org.vmmagic.unboxed.Address;
 import org.vmmagic.unboxed.Offset;
+import org.vmmagic.pragma.NonMoving;
 import org.vmmagic.pragma.Uninterruptible;
 import org.vmmagic.pragma.Entrypoint;
 import org.vmmagic.pragma.Untraced;
@@ -84,6 +85,7 @@ import org.vmmagic.pragma.NoInline;
  * @see Monitor
  * @see Lock */
 @Uninterruptible
+@NonMoving
 public final class SpinLock implements Constants {
   /**
    * Should contending <code>RVMThread</code>s spin on thread local addresses (true)

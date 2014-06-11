@@ -70,6 +70,14 @@ public class NoGC extends Plan {
     */
   }
 
+  /**
+   * Perform a (global) unpreemptible collection phase.
+   */
+  @Unpreemptible
+  public void unpreemptibleCollectionPhase(short phase) {
+    if (VM.VERIFY_ASSERTIONS) VM.assertions._assert(false);
+  }
+
   /*****************************************************************************
    * Accounting
    */

@@ -712,6 +712,7 @@ public final class RVMClass extends RVMType implements Constants, ClassLoaderCon
    */
   @Override
   @Pure
+  @Uninterruptible
   public RVMField[] getInstanceFields() {
     if (VM.VerifyAssertions) VM._assert(isResolved());
     return instanceFields;
