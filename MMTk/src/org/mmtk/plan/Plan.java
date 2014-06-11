@@ -152,6 +152,8 @@ public abstract class Plan implements Constants {
   /** Default collector context */
   protected final Class<? extends ParallelCollector> defaultCollectorContext;
 
+  public static long startTime; // used by heap growth manager
+
   /****************************************************************************
    * Constructor.
    */
