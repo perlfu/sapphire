@@ -119,8 +119,8 @@ public abstract class TraceLocal extends TransitiveClosure implements Constants 
    * @param slot The location containing the object reference to be
    * traced.  The object reference is <i>NOT</i> an interior pointer.
    */
-  @Inline
-  public final void reportDelayedRootEdge(Address slot) {
+  @Inline  
+  public void reportDelayedRootEdge(Address slot) { 
     rootLocations.push(slot);
   }
 
@@ -447,6 +447,8 @@ public abstract class TraceLocal extends TransitiveClosure implements Constants 
   }
 
   /**
+   * OBSOLETE? 
+   * 
    * Return true if an object is ready to move to the finalizable
    * queue, i.e. it has no regular references to it.  This method may
    * (and in some cases is) be overridden by subclasses. If this method
@@ -560,7 +562,7 @@ public abstract class TraceLocal extends TransitiveClosure implements Constants 
    * it is its own responsibility to ensure that they are flushed before
    * returning to MMTk.
    */
-  private void assertMutatorRemsetsFlushed() {
+  protected void assertMutatorRemsetsFlushed() {
     /* FIXME: PNT
     if (VM.VERIFY_ASSERTIONS) {
       for (int m = 0; m < VM.activePlan.mutatorCount(); m++) {

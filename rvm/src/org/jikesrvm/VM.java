@@ -44,6 +44,7 @@ import org.jikesrvm.scheduler.RVMThread;
 import org.jikesrvm.scheduler.TestThread;
 import org.jikesrvm.runtime.FileSystem;
 import org.jikesrvm.tuningfork.TraceEngine;
+import org.mmtk.policy.Space;
 import org.vmmagic.pragma.Entrypoint;
 import org.vmmagic.pragma.Inline;
 import org.vmmagic.pragma.Interruptible;

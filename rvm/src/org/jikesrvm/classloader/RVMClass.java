@@ -1248,9 +1248,34 @@ public final class RVMClass extends RVMType implements Constants, ClassLoaderCon
     } else {
       referenceOffsets = MemoryManager.newNonMovingIntArray(referenceFieldCount);
       int j = 0;
+      // build a sorted array
       for (RVMField field : instanceFields) {
         if (field.isTraced()) {
-          referenceOffsets[j++] = field.getOffset().toInt();
+          int offset = field.getOffset().toInt();
+          if (j > 0) {
+            if (referenceOffsets[j-1] < offset) {
+              // append to array
+              referenceOffsets[j++] = offset;
+            } else {
+              int k, l;
+              // find insertion point (k)
+              for (k = 0; k < j; ++k) {
+                if (referenceOffsets[k] > offset)
+                  break;
+              }
+              // move data away from insertion point
+              for (l = j; l > k; --l) {
+                referenceOffsets[l] = referenceOffsets[l-1];
+              }
+              // insert
+              referenceOffsets[k] = offset;
+              // increase array size
+              j++;
+            }
+          } else {
+            // first element; append to array
+            referenceOffsets[j++] = offset;
+          }
         }
       }
     }
