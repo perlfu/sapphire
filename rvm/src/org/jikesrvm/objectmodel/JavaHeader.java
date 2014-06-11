@@ -410,6 +410,25 @@ public class JavaHeader implements JavaHeaderConstants {
     return moveObject(Address.zero(), fromObj, toObj, numBytes);
   }
 
+  public static Object copyScalarHeader(Address toAddress, Object fromObj, TIB tib, int numBytes) {
+    if (VM.VerifyAssertions) VM._assert(ADDRESS_BASED_HASHING && DYNAMIC_HASH_OFFSET);
+    int objRefOffset = OBJECT_REF_OFFSET;
+    Object toObj = Magic.addressAsObject(toAddress.plus(objRefOffset));
+    setTIB(toObj, tib);
+    setStatusWord(fromObj, toObj, numBytes);
+    return toObj;
+  }
+
+  public static Object copyArrayHeader(Address toAddress, Object fromObj, TIB tib, int elements, int numBytes) {
+    if (VM.VerifyAssertions) VM._assert(ADDRESS_BASED_HASHING && DYNAMIC_HASH_OFFSET);
+    int objRefOffset = OBJECT_REF_OFFSET;
+    Object toObj = Magic.addressAsObject(toAddress.plus(objRefOffset));
+    setTIB(toObj, tib);
+    setStatusWord(fromObj, toObj, numBytes);
+    ObjectModel.setArrayLength(toObj, elements);
+    return toObj;
+  }
+
   private static void setStatusWord(Object fromObj, Object toObj, int numBytes) {
     if (VM.VerifyAssertions) VM._assert(ADDRESS_BASED_HASHING && DYNAMIC_HASH_OFFSET);
 
@@ -664,6 +683,15 @@ public class JavaHeader implements JavaHeaderConstants {
    */
   public static void writeAvailableBitsWord(Object o, Word val) {
     Magic.setWordAtOffset(o, STATUS_OFFSET, val);
+  }
+
+  public static void writeReplicaPointers(ObjectReference fromSpace, ObjectReference toSpace) {
+    Magic.setObjectAtOffset(fromSpace, GC_HEADER_OFFSET, toSpace);
+    if (!toSpace.isNull()) Magic.setObjectAtOffset(toSpace, GC_HEADER_OFFSET, fromSpace);
+  }
+
+  public static Object getReplicaPointer(ObjectReference o) {
+    return Magic.getObjectAtOffset(o, GC_HEADER_OFFSET);
   }
 
   /**

@@ -1106,15 +1106,6 @@ public class Barriers implements org.mmtk.utility.Constants {
     return false;
   }
 
-  /** True if the mutators run during GC */
-  public static final boolean ON_THE_FLY_GC = Selected.Constraints.get().onTheFlyCollector();
-  
-  /** True if the collector uses replication during GC */
-  public static final boolean REPLICATING_GC = Selected.Constraints.get().replicatingGC();
-  
-  /** True if the collector supports biased locking */
-  public static final boolean SUPPORTS_BIASED_LOCKING      = Selected.Constraints.get().supportsBiasedLocking();
-
   /** {@code true} if the garbage collector requires write barriers on Extent putfield, arraystore or modifycheck */
   private static final boolean NEEDS_EXTENT_GC_WRITE_BARRIER     = Selected.Constraints.get().needsExtentWriteBarrier();
   /** {@code true} if the VM requires write barriers on Extent putfield */
@@ -1391,6 +1382,15 @@ public class Barriers implements org.mmtk.utility.Constants {
       VM._assert(VM.NOT_REACHED);
     return false;
   }
+
+  /** True if the mutators run during GC */
+  public static final boolean ON_THE_FLY_GC = Selected.Constraints.get().onTheFlyCollector();
+  
+  /** True if the collector uses replication during GC */
+  public static final boolean REPLICATING_GC = Selected.Constraints.get().replicatingGC();
+  
+  /** True if the collector supports biased locking */
+  public static final boolean SUPPORTS_BIASED_LOCKING      = Selected.Constraints.get().supportsBiasedLocking();
 
   /**
    * Barrier for writes of Address into fields of instances (ie putfield). Whilst a GC is taking place (bypasses certain assertions)

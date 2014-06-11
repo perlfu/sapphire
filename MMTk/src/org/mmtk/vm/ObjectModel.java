@@ -12,6 +12,7 @@
  */
 package org.mmtk.vm;
 
+import org.mmtk.plan.TraceLocal;
 import org.vmmagic.pragma.Uninterruptible;
 import org.vmmagic.unboxed.*;
 
@@ -31,6 +32,12 @@ public abstract class ObjectModel {
    * @return the address of the new object
    */
   public abstract ObjectReference copy(ObjectReference from, int allocator);
+
+  public abstract ObjectReference createBlankReplica(ObjectReference from, int allocator);
+
+  public abstract ObjectReference fillInBlankDoubleRelica(ObjectReference from, Address toSpace, int bytes);
+
+  public abstract boolean validRef(ObjectReference obj);
 
   /**
    * Copy an object to be pointer to by the to address. This is required
@@ -185,6 +192,11 @@ public abstract class ObjectModel {
    * @param val the new value of the bits
    */
   public abstract void writeAvailableBitsWord(ObjectReference object, Word val);
+
+  public abstract void writeReplicaPointers(ObjectReference o, ObjectReference ptr);
+
+  public abstract ObjectReference getReplicaPointer(ObjectReference obj);
+
   /**
    * Read the bits available for memory manager use in an object.
    *
@@ -235,7 +247,7 @@ public abstract class ObjectModel {
    * @param object The object whose information is to be dumped
    */
   public abstract void dumpObject(ObjectReference object);
-
+  
   /*
    * NOTE: The following methods must be implemented by subclasses of this
    * class, but are internal to the VM<->MM interface glue, so are never
@@ -255,6 +267,48 @@ public abstract class ObjectModel {
   static Offset arrayBaseOffsetTrapdoor(ObjectModel o) {
     return o.getArrayBaseOffset();
   }
+
+  /*
+   * concurrent copy methods
+   *   concurrentCopy: CAS, field by field
+   *   Unsafe:         no,  field by field
+   *   HTM:            HTM
+   *   STM:            STM, field by field, compare from-value with local buffer
+   *   STMCopy:        STM copy part, field by field
+   *   STMVerify:      STM verify part, field by field, compare from-value with local buffer
+   *   STMSeq:         STM, word by word (copy and update for pointer), compare from-value with local buffer
+   *   STMSeq2:        STM, word by word, compare from-value with local buffer
+   *   STMSeq2N:       STM, word by word, compare from-value with to-value
+   *   STMSeq2P:       STM, word by word, compare from-value with local buffer for pointer fields
+   *   Unsafe2:        no,  word by word
+   *   CAS2:           CAS, word by word
+   */
+
+  public abstract void concurrentCopy(TraceLocal trace, ObjectReference fromObject, ObjectReference toObject);
+  
+  public abstract void concurrentCopyUnsafe(TraceLocal trace, ObjectReference fromObject, ObjectReference toObject);
+  
+  public abstract int concurrentCopyHTM(TraceLocal trace, ObjectReference fromObject, ObjectReference toObject, int attempts);
+  public abstract int concurrentCopyHTM2(TraceLocal trace, ObjectReference fromObject, ObjectReference toObject, int attempts);
+  public abstract int concurrentCopyHTMBegin();
+  public abstract int concurrentCopyHTMEnd();
+  
+  public static final int CONCURRENT_COPY_FAILED = -1;
+  public abstract boolean concurrentCopySTM(TraceLocal trace, ObjectReference fromObject, ObjectReference toObject, Address buf, Extent buflen);
+  public abstract int concurrentCopySTMCopy(TraceLocal trace, ObjectReference fromObject, ObjectReference toObject, Address buf, Extent buflen);
+  public abstract boolean concurrentCopySTMVerify(ObjectReference fromObject, ObjectReference toObject, Address buf);
+  public abstract int concurrentCopySTMSeqCopy(TraceLocal trace, ObjectReference fromObject, ObjectReference toObject, Address buf, Extent buflen);
+  public abstract boolean concurrentCopySTMSeqVerify(ObjectReference fromObject, ObjectReference toObject, Address buf);
+  public abstract boolean concurrentCopySTMSeq(TraceLocal trace, ObjectReference fromObject, ObjectReference toObject, Address buf, Extent buflen);
+  public abstract boolean concurrentCopySTMSeq2(TraceLocal trace, ObjectReference fromObject, ObjectReference toObject, Address buf, Extent buflen);
+  public abstract boolean concurrentCopySTMSeq2N(TraceLocal trace, ObjectReference fromObject, ObjectReference toObject, Address buf, Extent buflen);
+  public abstract boolean concurrentCopySTMSeq2P(TraceLocal trace, ObjectReference fromObject, ObjectReference toObject, Address buf, Extent buflen);
+  public abstract void concurrentCopyUnsafe2(TraceLocal trace, ObjectReference fromObject, ObjectReference toObject);
+  public abstract void concurrentCopyCAS2(TraceLocal trace, ObjectReference fromObject, ObjectReference toObject);
+  
+  public abstract int getBytesWhenCopied(ObjectReference object);
+  public abstract int getNumberOfPointerFields(ObjectReference object);
+  
   public abstract Offset getThinLockOffset(ObjectReference o);
   
   /**

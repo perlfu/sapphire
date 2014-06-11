@@ -27,6 +27,7 @@ import org.jikesrvm.compilers.common.CompiledMethod;
 import org.jikesrvm.objectmodel.JavaHeaderConstants;
 import org.jikesrvm.objectmodel.ObjectModel;
 import org.jikesrvm.runtime.Magic;
+import org.mmtk.plan.Plan;
 import org.mmtk.plan.TransitiveClosure;
 import org.vmmagic.pragma.Inline;
 import org.vmmagic.pragma.Interruptible;

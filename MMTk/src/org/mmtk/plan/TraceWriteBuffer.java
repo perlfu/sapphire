@@ -12,7 +12,10 @@
  */
 package org.mmtk.plan;
 
+import org.mmtk.policy.Space;
+import org.mmtk.utility.Log;
 import org.mmtk.utility.deque.WriteBuffer;
+import org.mmtk.vm.VM;
 import org.vmmagic.pragma.*;
 import org.vmmagic.unboxed.*;
 

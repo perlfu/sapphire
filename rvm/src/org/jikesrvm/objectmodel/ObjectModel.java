@@ -17,12 +17,15 @@ import org.jikesrvm.VM;
 import org.jikesrvm.SizeConstants;
 import org.jikesrvm.classloader.RVMArray;
 import org.jikesrvm.classloader.RVMClass;
+import org.jikesrvm.classloader.RVMField;
 import org.jikesrvm.classloader.RVMType;
 import org.jikesrvm.mm.mminterface.AlignmentEncoding;
+import org.jikesrvm.mm.mminterface.DebugUtil;
 import org.jikesrvm.mm.mminterface.MemoryManager;
 import org.jikesrvm.runtime.Magic;
 import org.jikesrvm.scheduler.Lock;
 import org.jikesrvm.scheduler.RVMThread;
+import org.mmtk.plan.TraceLocal;
 import org.vmmagic.pragma.Entrypoint;
 import org.vmmagic.pragma.Inline;
 import org.vmmagic.pragma.Interruptible;
@@ -219,7 +222,12 @@ public class ObjectModel implements JavaHeaderConstants, SizeConstants {
     TIB tib = getTIB(obj);
     RVMType type = tib.getType();
     if (type.isClassType()) {
-      return getObjectEndAddress(obj, type.asClass());
+      if (!type.getTypeRef().isRuntimeTable())
+        return getObjectEndAddress(obj, type.asClass());
+      else {
+        int numElements = Magic.getArrayLength(obj);
+        return getObjectEndAddress(obj, RVMType.AddressArrayType, numElements);
+      }
     } else {
       int numElements = Magic.getArrayLength(obj);
       return getObjectEndAddress(obj, type.asArray(), numElements);
@@ -400,6 +408,14 @@ public class ObjectModel implements JavaHeaderConstants, SizeConstants {
    */
   public static Object moveObject(Address toAddress, Object fromObj, int numBytes, RVMClass type) {
     return JavaHeader.moveObject(toAddress, fromObj, numBytes, type);
+  }
+
+  public static Object copyScalarHeader(Address toAddress, Object fromObj, TIB tib, int numBytes) {
+    return JavaHeader.copyScalarHeader(toAddress, fromObj, tib, numBytes);
+  }
+
+  public static Object copyArrayHeader(Address toAddress, Object fromObj, TIB tib, int elements, int numBytes) {
+    return JavaHeader.copyArrayHeader(toAddress, fromObj, tib, elements, numBytes);
   }
 
   /**
