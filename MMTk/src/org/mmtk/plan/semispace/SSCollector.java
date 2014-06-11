@@ -100,7 +100,8 @@ public class SSCollector extends StopTheWorldCollector {
 
   @Override
   @Inline
-  public void postCopy(ObjectReference object, ObjectReference typeRef,
+  public void postCopy(ObjectReference original, 
+      ObjectReference object, ObjectReference typeRef,
       int bytes, int allocator) {
     ForwardingWord.clearForwardingBits(object);
     if (allocator == Plan.ALLOC_LOS)

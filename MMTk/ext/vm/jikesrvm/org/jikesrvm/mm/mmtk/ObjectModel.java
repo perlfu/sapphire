@@ -58,7 +58,7 @@ import org.vmmagic.pragma.*;
                                                 allocator, from);
     Object toObj = org.jikesrvm.objectmodel.ObjectModel.moveObject(region, from.toObject(), bytes, type);
     ObjectReference to = ObjectReference.fromObject(toObj);
-    context.postCopy(to, ObjectReference.fromObject(tib), bytes, allocator);
+    context.postCopy(from, to, ObjectReference.fromObject(tib), bytes, allocator);
     return to;
   }
 
@@ -74,7 +74,7 @@ import org.vmmagic.pragma.*;
                                                 allocator, from);
     Object toObj = org.jikesrvm.objectmodel.ObjectModel.moveObject(region, from.toObject(), bytes, type);
     ObjectReference to = ObjectReference.fromObject(toObj);
-    context.postCopy(to, ObjectReference.fromObject(tib), bytes, allocator);
+    context.postCopy(from, to, ObjectReference.fromObject(tib), bytes, allocator);
     if (type == RVMType.CodeArrayType) {
       // sync all moved code arrays to get icache and dcache in sync
       // immediately.

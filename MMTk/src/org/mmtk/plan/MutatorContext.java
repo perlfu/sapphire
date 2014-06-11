@@ -214,6 +214,11 @@ public abstract class MutatorContext implements Constants {
    * @param allocator The allocator number to be used for this allocation
    */
   @Inline
+  public void postAlloc(ObjectReference ref, ObjectReference typeRef, int bytes, int allocator, int align, int offset) {
+    this.postAlloc(ref, typeRef, bytes, allocator);
+  }
+
+  @Inline
   public void postAlloc(ObjectReference ref, ObjectReference typeRef,
       int bytes, int allocator) {
     switch (allocator) {

@@ -120,7 +120,11 @@ public abstract class CollectorContext implements Constants {
    * @param bytes The size of the space to be allocated (in bytes).
    * @param allocator The allocator statically assigned to this allocation.
    */
-  public void postCopy(ObjectReference ref, ObjectReference typeRef, int bytes, int allocator) {
+  public void postCopy(ObjectReference to, ObjectReference typeRef, int bytes, int allocator) {
+    VM.assertions.fail("Collector has not implemented postCopy");
+  }
+
+  public void postCopy(ObjectReference from, ObjectReference to, ObjectReference typeRef, int bytes, int allocator) {
     VM.assertions.fail("Collector has not implemented postCopy");
   }
 
