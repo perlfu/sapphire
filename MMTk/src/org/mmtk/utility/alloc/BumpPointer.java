@@ -17,6 +17,7 @@ import org.mmtk.utility.Constants;
 import org.mmtk.utility.Conversions;
 import org.mmtk.utility.Log;
 import org.mmtk.utility.gcspy.drivers.LinearSpaceDriver;
+import org.mmtk.vm.Lock;
 import org.mmtk.vm.VM;
 import org.vmmagic.pragma.Inline;
 import org.vmmagic.pragma.NoInline;
@@ -503,6 +504,29 @@ import org.vmmagic.unboxed.Word;
     setRegionLimit(region,limit);
   }
 
+  // Doesn't leave either bump pointer is a useable state for allocation.
+  public void tackOn(BumpPointer bump) {
+    if (bump.initialRegion.isZero()) {
+      // the bumpointer we are tacking on has not allocated anything
+      return;
+    }
+    if (initialRegion.isZero()) {
+      /* the first mutator thread has died and we are preserving it's bump pointer */
+      initialRegion = bump.initialRegion;
+      region = bump.region;
+      cursor = bump.cursor;
+    } else {
+      if (VM.VERIFY_ASSERTIONS) {
+        VM.assertions._assert(space == bump.space);
+      }
+      // tack on another bump pointer
+      setDataEnd(region, cursor); // no more data will be allocated in this region of the old bump pointer
+      setNextRegion(region, bump.initialRegion); // next Region is the beginning of the next bump pointer
+      region = bump.region; // fast forward to end of tacked on bump pointer
+      cursor = bump.cursor; // fast forward to end of tacked on bump pointer
+    }
+  }
+
   /**
    * Gather data for GCspy. <p>
    * This method calls the drivers linear scanner to scan through
@@ -562,6 +586,40 @@ import org.vmmagic.unboxed.Word;
   }
 
   /**
+   * Perform a linear scan through the objects allocated by this bump pointer.
+   *
+   * @param scanner The scan object to delegate scanning to.
+   */
+  @Inline
+  public final void prepareForParallelLinearScan() {
+    if (VM.VERIFY_ASSERTIONS) VM.assertions._assert(allowScanning);
+    parallelScanNextRegion = initialRegion;
+  }
+
+  private Address parallelScanNextRegion;
+  private Lock parallelScanLock = VM.newLock("BumpPointer parallel scan");
+  
+  /**
+   * Perform a linear scan through the objects allocated by this bump pointer.
+   *
+   * @param scanner The scan object to delegate scanning to.
+   */
+  @Inline
+  public final void parallelLinearScan(LinearScan scanner) {
+    while (true) {
+      Address region;
+      parallelScanLock.acquire();
+      region = parallelScanNextRegion;
+      if (!region.isZero())
+        parallelScanNextRegion = getNextRegion(region);
+      parallelScanLock.release();
+      if (region.isZero())
+        break;
+      scanRegion(scanner, region);
+    }
+  }
+
+  /**
    * Perform a linear scan through a single contiguous region
    *
    * @param scanner The scan object to delegate to.
@@ -570,20 +628,37 @@ import org.vmmagic.unboxed.Word;
   @Inline
   private void scanRegion(LinearScan scanner, Address start) {
     /* Get the end of this region */
-    Address dataEnd = start.plus(DATA_END_OFFSET).loadAddress();
-
+    Address dataEnd = getDataEnd(start);
+    
     /* dataEnd = zero represents the current region. */
     Address currentLimit = (dataEnd.isZero() ? cursor : dataEnd);
-    if (currentLimit.EQ(start.plus(DATA_END_OFFSET).plus(BYTES_IN_ADDRESS))) {
+    if (currentLimit.EQ(start.plus(DATA_START_OFFSET))) {
       /* Empty region, so we can not call getObjectFromStartAddress() */
       return;
     }
 
     ObjectReference current = VM.objectModel.getObjectFromStartAddress(start.plus(DATA_START_OFFSET));
-
+    if (VM.VERIFY_ASSERTIONS) {
+      if (!VM.objectModel.validRef(current)) {
+        show();
+        Log.write("dataEnd = "); Log.writeln(dataEnd);
+        Log.write("currentLimit = "); Log.writeln(currentLimit);
+      }
+      VM.assertions._assert(VM.objectModel.validRef(current));
+    }
+    scanner.startScanSeries();
     /* Loop through each object up to the limit */
     do {
       /* Read end address first, as scan may be destructive */
+      if (VM.VERIFY_ASSERTIONS) {
+        if (!VM.objectModel.validRef(current)) {
+          show();
+          Log.write("currentLimit = ");
+          Log.writeln(currentLimit);
+          Log.write("dataEnd = "); Log.writeln(dataEnd);
+        }
+        VM.assertions._assert(VM.objectModel.validRef(current));
+      }
       Address currentObjectEnd = VM.objectModel.getObjectEndAddress(current);
       scanner.scan(current);
       if (currentObjectEnd.GE(currentLimit)) {
@@ -598,6 +673,7 @@ import org.vmmagic.unboxed.Word;
       }
       current = next;
     } while (true);
+    scanner.endScanSeries();
   }
 
   /**

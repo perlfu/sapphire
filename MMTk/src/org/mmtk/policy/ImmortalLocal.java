@@ -12,9 +12,12 @@
  */
 package org.mmtk.policy;
 
+import org.mmtk.utility.HeaderByte;
 import org.mmtk.utility.alloc.BumpPointer;
+import org.mmtk.vm.VM;
 
 import org.vmmagic.pragma.*;
+import org.vmmagic.unboxed.ObjectReference;
 
 /**
  * This class implements unsynchronized (local) elements of an
@@ -26,6 +29,8 @@ import org.vmmagic.pragma.*;
  */
 @Uninterruptible public final class ImmortalLocal extends BumpPointer {
 
+  private byte allocColor = 0;
+
   /**
    * Constructor
    *
@@ -33,5 +38,31 @@ import org.vmmagic.pragma.*;
    */
   public ImmortalLocal(ImmortalSpace space) {
     super(space, true);
+  }
+
+  @Inline
+  private void updateAllocColor() {
+    allocColor = (byte) ((ImmortalSpace) space).getMarkState().toInt();
+  }
+  
+  public void init() {
+    updateAllocColor();
+  }
+
+  public void prepare() {
+    updateAllocColor();
+  }
+
+  /**
+   * Initialize the object header post-allocation.  We need to set the mark state
+   * correctly and set the logged bit if necessary.
+   *
+   * @param object The newly allocated object instance whose header we are initializing
+   */
+  public void initializeHeader(ObjectReference object) {
+    byte oldValue = VM.objectModel.readAvailableByte(object);
+    byte newValue = (byte) ((oldValue & ImmortalSpace.GC_MARK_BIT_MASK) | allocColor);
+    if (HeaderByte.NEEDS_UNLOGGED_BIT) newValue |= HeaderByte.UNLOGGED_BIT;
+    VM.objectModel.writeAvailableByte(object, newValue);
   }
 }

@@ -112,6 +112,13 @@ import org.vmmagic.pragma.*;
     VM.objectModel.writeAvailableByte(object, newValue);
   }
 
+  public void initializeHeaderWithMark(ObjectReference object) {
+    byte oldValue = VM.objectModel.readAvailableByte(object);
+    byte newValue = (byte) ((oldValue & GC_MARK_BIT_MASK) | (markState==1 ? 0 : 1));
+    if (HeaderByte.NEEDS_UNLOGGED_BIT) newValue |= HeaderByte.UNLOGGED_BIT;
+    VM.objectModel.writeAvailableByte(object, newValue);
+  }
+
   /**
    * Used to mark boot image objects during a parallel scan of objects during GC
    * Returns {@code true} if marking was done.
