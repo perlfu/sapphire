@@ -1189,6 +1189,10 @@ public final class BranchOptimizations extends BranchOptimizationDriver {
     if ((cb.operator() != INT_IFCMP) && (cb.operator() != REF_IFCMP)) {
       return false;
     }
+    // Ugawa: REF_IFCMP needs to be preserved so we can insert eq-barrier
+    if (cb.operator() == REF_IFCMP) {
+      return false;
+    }
     // make sure this is the last branch in the block
     if (cb.nextInstructionInCodeOrder().operator() != BBEND) {
       return false;

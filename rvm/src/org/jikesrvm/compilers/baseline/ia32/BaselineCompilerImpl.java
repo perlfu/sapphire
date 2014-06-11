@@ -2001,26 +2001,38 @@ public abstract class BaselineCompilerImpl extends BaselineCompiler implements B
 
   @Override
   protected final void emit_if_acmpeq(int bTarget) {
-    asm.emitPOP_Reg(S0);
-    asm.emitPOP_Reg(T0);
-    if (VM.BuildFor32Addr) {
-      asm.emitCMP_Reg_Reg(T0, S0);
+    if (NEEDS_OBJECT_COMPARE_BARRIER) {
+      Barriers.compileObjectCompareBarrier(asm);
+      asm.emitTEST_Reg_Reg(T0, T0);
+      genCondBranch(Assembler.NE, bTarget);
     } else {
-      asm.emitCMP_Reg_Reg_Quad(T0, S0);
-    }
-    genCondBranch(Assembler.EQ, bTarget);
+      asm.emitPOP_Reg(S0);
+      asm.emitPOP_Reg(T0);
+      if (VM.BuildFor32Addr) {
+        asm.emitCMP_Reg_Reg(T0, S0);
+	  } else {
+	    asm.emitCMP_Reg_Reg_Quad(T0, S0);
+	  }
+	  genCondBranch(Assembler.EQ, bTarget);
+	}
   }
 
   @Override
   protected final void emit_if_acmpne(int bTarget) {
-    asm.emitPOP_Reg(S0);
-    asm.emitPOP_Reg(T0);
-    if (VM.BuildFor32Addr) {
-      asm.emitCMP_Reg_Reg(T0, S0);
+    if (NEEDS_OBJECT_COMPARE_BARRIER) {
+      Barriers.compileObjectCompareBarrier(asm);
+      asm.emitTEST_Reg_Reg(T0, T0);
+      genCondBranch(Assembler.EQ, bTarget);
     } else {
-      asm.emitCMP_Reg_Reg_Quad(T0, S0);
-    }
-    genCondBranch(Assembler.NE, bTarget);
+      asm.emitPOP_Reg(S0);
+      asm.emitPOP_Reg(T0);
+      if (VM.BuildFor32Addr) {
+        asm.emitCMP_Reg_Reg(T0, S0);
+      } else {
+        asm.emitCMP_Reg_Reg_Quad(T0, S0);
+      }
+      genCondBranch(Assembler.NE, bTarget);
+	}
   }
 
   @Override

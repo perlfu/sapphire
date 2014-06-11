@@ -587,6 +587,12 @@ class Barriers implements BaselineConstants {
     asm.emitPUSH_Reg(T0);
   }
 
+  static void compileObjectCompareBarrier(Assembler asm) {
+	// the references are on the stack
+	BaselineCompilerImpl.genParameterRegisterLoad(asm, 2);
+	asm.emitCALL_Abs(Magic.getTocPointer().plus(Entrypoints.objectCompareBarrierMethod.getOffset()));
+  }
+  
   static void compileModifyCheck(Assembler asm, int offset) {
     if (!Configuration.ExtremeAssertions) return;
     // on entry java stack contains ... [SP+offset] -> target_ref
@@ -595,7 +601,7 @@ class Barriers implements BaselineConstants {
     BaselineCompilerImpl.genParameterRegisterLoad(asm, 1);
     asm.emitCALL_Abs(Magic.getTocPointer().plus(Entrypoints.modifyCheckMethod.getOffset()));
   }
-
+  
   /**
    * Generate an implicit null check by loading the TIB of the given object.
    * Scribbles over S0.

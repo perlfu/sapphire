@@ -370,6 +370,9 @@ public class Entrypoints {
   public static final NormalMethod objectStaticReadBarrierMethod =
       getMethod(org.jikesrvm.mm.mminterface.Barriers.class, "objectStaticRead", "(Lorg/vmmagic/unboxed/Offset;I)Ljava/lang/Object;");
 
+  public static final NormalMethod objectCompareBarrierMethod =
+      getMethod(org.jikesrvm.mm.mminterface.Barriers.class, "objectCompare", "(Ljava/lang/Object;Ljava/lang/Object;)Z");
+  
   public static final NormalMethod modifyCheckMethod =
       getMethod(org.jikesrvm.mm.mminterface.MemoryManager.class, "modifyCheck", "(Ljava/lang/Object;)V");
 

@@ -145,6 +145,9 @@ import org.vmmagic.pragma.*;
   /** @return {@code true} if this Plan requires non-heap read barriers on object references. */
   public boolean needsObjectReferenceNonHeapReadBarrier() { return false; }
 
+  /** @return {@code true} if this Plan requires a barrier on object equality tests. */
+  public boolean needsObjectReferenceCompareBarrier() { return false; }
+  
   /** @return {@code true} if this Plan can perform bulk object arraycopy barriers. */
   public boolean objectReferenceBulkCopySupported() { return false; }
 

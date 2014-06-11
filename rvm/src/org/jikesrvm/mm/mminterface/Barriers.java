@@ -1431,4 +1431,18 @@ public class Barriers implements org.mmtk.utility.Constants {
     } else if (VM.VerifyAssertions)
       VM._assert(false);
   }
+  
+  private static final boolean NEEDS_OBJECT_GC_COMPARE_BARRIER = Selected.Constraints.get().needsObjectReferenceCompareBarrier();
+  public static final boolean NEEDS_OBJECT_COMPARE_BARRIER = NEEDS_OBJECT_GC_COMPARE_BARRIER;
+  
+  @Inline
+  public static boolean objectCompare(Object refA, Object refB) {
+    if (NEEDS_OBJECT_GC_COMPARE_BARRIER) {
+    	ObjectReference orefA = ObjectReference.fromObject(refA);
+    	ObjectReference orefB = ObjectReference.fromObject(refB);
+      return Selected.Mutator.get().objectReferenceCompare(orefA, orefB);
+    } else if (VM.VerifyAssertions)
+    	VM._assert(false);
+    return false;
+  }
 }

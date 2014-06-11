@@ -18,6 +18,7 @@ import static org.jikesrvm.compilers.opt.ir.Operators.CALL;
 import static org.jikesrvm.compilers.opt.ir.Operators.GETFIELD_opcode;
 import static org.jikesrvm.compilers.opt.ir.Operators.GETSTATIC_opcode;
 import static org.jikesrvm.compilers.opt.ir.Operators.INT_ASTORE;
+import static org.jikesrvm.compilers.opt.ir.Operators.INT_IFCMP;
 import static org.jikesrvm.compilers.opt.ir.Operators.MONITORENTER_opcode;
 import static org.jikesrvm.compilers.opt.ir.Operators.MONITOREXIT_opcode;
 import static org.jikesrvm.compilers.opt.ir.Operators.NEWARRAY_UNRESOLVED_opcode;
@@ -30,6 +31,8 @@ import static org.jikesrvm.compilers.opt.ir.Operators.PUTFIELD_opcode;
 import static org.jikesrvm.compilers.opt.ir.Operators.PUTSTATIC_opcode;
 import static org.jikesrvm.compilers.opt.ir.Operators.REF_ALOAD_opcode;
 import static org.jikesrvm.compilers.opt.ir.Operators.REF_ASTORE_opcode;
+import static org.jikesrvm.compilers.opt.ir.Operators.BOOLEAN_CMP_ADDR_opcode;
+import static org.jikesrvm.compilers.opt.ir.Operators.REF_IFCMP_opcode;
 import static org.jikesrvm.compilers.opt.ir.Operators.BYTE_ASTORE_opcode;
 import static org.jikesrvm.compilers.opt.ir.Operators.DOUBLE_ASTORE_opcode;
 import static org.jikesrvm.compilers.opt.ir.Operators.FLOAT_ASTORE_opcode;
@@ -58,11 +61,13 @@ import org.jikesrvm.compilers.opt.inlining.Inliner;
 import org.jikesrvm.compilers.opt.ir.ALoad;
 import org.jikesrvm.compilers.opt.ir.AStore;
 import org.jikesrvm.compilers.opt.ir.Athrow;
+import org.jikesrvm.compilers.opt.ir.BooleanCmp;
 import org.jikesrvm.compilers.opt.ir.Call;
 import org.jikesrvm.compilers.opt.ir.GetField;
 import org.jikesrvm.compilers.opt.ir.GetStatic;
 import org.jikesrvm.compilers.opt.ir.IR;
 import org.jikesrvm.compilers.opt.ir.IRTools;
+import org.jikesrvm.compilers.opt.ir.IfCmp;
 import org.jikesrvm.compilers.opt.ir.Instruction;
 import org.jikesrvm.compilers.opt.ir.MonitorOp;
 import org.jikesrvm.compilers.opt.ir.Multianewarray;
@@ -606,6 +611,57 @@ public final class ExpandRuntimeServices extends CompilerPhase {
           }
         }
         break;
+/*  See BranchOptimization
+        case BOOLEAN_CMP_ADDR_opcode: {
+          if (NEEDS_OBJECT_COMPARE_BARRIER) {
+            RVMMethod target = Entrypoints.objectCompareBarrierMethod;
+            Call.mutate2(inst,
+                          CALL,
+                          BooleanCmp.getResult(inst),
+                          IRTools.AC(target.getOffset()),
+                          MethodOperand.STATIC(target),
+                          BooleanCmp.getVal1(inst).copy(),
+                          BooleanCmp.getVal2(inst).copy());
+            inst.bcIndex = RUNTIME_SERVICES_BCI;
+            next = inst.prevInstructionInCodeOrder();
+            inline(inst, ir, true);
+          }
+        }
+        break;
+*/
+        case REF_IFCMP_opcode: {
+            if (NEEDS_OBJECT_COMPARE_BARRIER) {
+              if (!(IfCmp.getVal1(inst).isDefinitelyNull() || IfCmp.getVal2(inst).isDefinitelyNull())) {
+                // insert a call to the barrier function before the conditional jump (the barrier returns boolean)
+                // then transform the jump to compare the result of the barrier against 0
+                // then inline the call
+                RegisterOperand comparisonResult = ir.regpool.makeTemp(TypeReference.Boolean);
+                             
+                RVMMethod target = Entrypoints.objectCompareBarrierMethod;
+                Instruction cb = 
+                  Call.create2(CALL, 
+                  		comparisonResult, 
+                  		IRTools.AC(target.getOffset()),
+                  		MethodOperand.STATIC(target), 
+                  		IfCmp.getGuardResult(inst).copyRO(),
+                  		IfCmp.getVal1(inst).copy(),
+                  		IfCmp.getVal2(inst).copy());
+                cb.bcIndex = RUNTIME_SERVICES_BCI;
+                inst.insertBefore(cb); // this sets the position
+                IfCmp.mutate(inst, 
+              		  INT_IFCMP, 
+              		  IfCmp.getGuardResult(inst), 
+              		  comparisonResult, 
+              		  IRTools.IC(0), 
+              		  IfCmp.getCond(inst).flipCode(), 
+              		  IfCmp.getTarget(inst), 
+              		  IfCmp.getBranchProfile(inst));
+                next = cb.prevInstructionInCodeOrder();
+                inline(cb, ir, true);
+              }
+            }
+          }
+          break;
 
         default:
           break;

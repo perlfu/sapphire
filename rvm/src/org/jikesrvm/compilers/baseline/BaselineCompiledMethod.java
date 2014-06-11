@@ -30,6 +30,7 @@ import org.jikesrvm.runtime.ExceptionDeliverer;
 import org.jikesrvm.runtime.StackBrowser;
 import org.vmmagic.pragma.Uninterruptible;
 import org.vmmagic.pragma.Unpreemptible;
+import org.vmmagic.unboxed.ObjectReference;
 import org.vmmagic.unboxed.Offset;
 
 /**
