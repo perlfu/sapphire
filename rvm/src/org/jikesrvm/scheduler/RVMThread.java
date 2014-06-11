@@ -2600,13 +2600,13 @@ public final class RVMThread extends ThreadContext implements Constants {
      */
     currentThread.pthread_id = sysCall.sysGetThreadId();
     currentThread.priority_handle = sysCall.sysGetThreadPriorityHandle();
-
-    /*
+    
+    /* 
      * set thread priority to match stored value
      */
-    sysCall.sysSetThreadPriority(currentThread.pthread_id,
+    sysCall.sysSetThreadPriority(currentThread.pthread_id, 
         currentThread.priority_handle, currentThread.priority - Thread.NORM_PRIORITY);
-
+    
     currentThread.enableYieldpoints();
     sysCall.sysStashVMThread(currentThread);
     if (traceAcct) {

@@ -1,0 +1,13 @@
+--- java/lang/Thread.java	2013-07-25 14:08:12.000000000 +0100
++++ java/lang/Thread.java	2013-07-25 14:04:48.000000000 +0100
+@@ -374,8 +374,8 @@
+         this.threadId = ++totalThreadsCreated;
+       }
+ 
+-    priority = current.priority;
+-    daemon = current.daemon;
++    priority = current.getPriority();
++    daemon = current.isDaemon();
+     contextClassLoader = current.contextClassLoader;
+     contextClassLoaderIsSystemClassLoader =
+         current.contextClassLoaderIsSystemClassLoader;
