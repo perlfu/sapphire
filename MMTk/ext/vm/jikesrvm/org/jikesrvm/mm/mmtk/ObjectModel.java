@@ -297,5 +297,27 @@ import org.vmmagic.pragma.*;
   public void dumpObject(ObjectReference object) {
     DebugUtil.dumpRef(object);
   }
+  public Offset getThinLockOffset(ObjectReference o) {
+    return org.jikesrvm.objectmodel.ObjectModel.getThinLockOffset(o.toObject());
+  }
+  
+  /**
+   * Tell if o is hashed or not.
+   * @param o
+   * @return True if o is not hashed.  False if o is hashed regardless of whether it is moved or not.
+   */
+  @Override
+  public boolean isUnhashed(ObjectReference o) {
+    return org.jikesrvm.objectmodel.ObjectModel.isUnhashed(o);
+  }
+
+  /**
+   * Make the object in the hashed state.  If it has already been hashed, do nothing.
+   * @param o
+   */
+  @Override
+  public void setHashed(ObjectReference o) {
+    org.jikesrvm.objectmodel.ObjectModel.setHashed(o);
+  }
 }
 
