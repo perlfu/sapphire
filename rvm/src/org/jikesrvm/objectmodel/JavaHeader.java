@@ -78,7 +78,7 @@ public class JavaHeader implements JavaHeaderConstants {
   /** offset of object reference from the lowest memory word */
   public static final int OBJECT_REF_OFFSET = ARRAY_HEADER_SIZE;  // from start to ref
   protected static final Offset TIB_OFFSET = JAVA_HEADER_OFFSET;
-  protected static final Offset STATUS_OFFSET = TIB_OFFSET.plus(STATUS_BYTES);
+  public static final Offset STATUS_OFFSET = TIB_OFFSET.plus(STATUS_BYTES);
   protected static final Offset AVAILABLE_BITS_OFFSET =
       VM.LittleEndian ? (STATUS_OFFSET) : (STATUS_OFFSET.plus(STATUS_BYTES - 1));
 
