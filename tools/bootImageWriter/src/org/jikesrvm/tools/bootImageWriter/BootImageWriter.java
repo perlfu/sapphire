@@ -66,6 +66,7 @@ import org.jikesrvm.objectmodel.MiscHeader;
 import org.jikesrvm.objectmodel.ObjectModel;
 import org.jikesrvm.objectmodel.RuntimeTable;
 import org.jikesrvm.objectmodel.TIB;
+import org.jikesrvm.runtime.ArchEntrypoints;
 import org.jikesrvm.runtime.BootRecord;
 import org.jikesrvm.runtime.Entrypoints;
 import org.jikesrvm.runtime.Magic;
@@ -1130,6 +1131,9 @@ public class BootImageWriter extends BootImageWriterMessages
       fail("unable to write address map: "+e);
     }
 
+    // added to get framePointer offset from RVMThread to manually walk stacks in GDB
+    say("offset of RVMThread.framePointer== " + ArchEntrypoints.framePointerField.getOffset());
+
     if (verbose >= 1) say("done");
   }
 
@@ -1150,7 +1154,7 @@ public class BootImageWriter extends BootImageWriterMessages
 
     @Override
     public int compare(T a, T b) {
-      if (a == null && b == null) return 0;
+      if (a == b) return 0;
       if (a == null) return 1;
       if (b == null) return -1;
       if ((a instanceof RVMType) && (b instanceof RVMType)) {
@@ -1158,7 +1162,7 @@ public class BootImageWriter extends BootImageWriterMessages
         RVMType typeB = (RVMType) b;
         DemographicInformation infoA = demographicData.get(typeA);
         DemographicInformation infoB = demographicData.get(typeB);
-        if (infoA == null && infoB == null) return 0;
+        if (infoA == infoB) return 0;
         if (infoA == null) return 1;
         if (infoB == null) return -1;
 
