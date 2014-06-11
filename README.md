@@ -22,3 +22,81 @@ It is documented in a journal paper [here](http://onlinelibrary.wiley.com/doi/10
 
 This implementation was performed with permission from Intel
 who hold patents on Sapphire's design.
+
+
+### Building
+
+Standard Jikes RVM dependencies apply for building with *ant* (see [here](http://docs.codehaus.org/display/RVM/Building+the+RVM)]).
+
+To build optimised (adjust host.name appropriately):
+```
+ant -Dhost.name=x86_64-osx -Dconfig.name=FastAdaptiveOTFSapphire
+```
+
+To build debug (adjust host.name appropriately):
+```
+ant -Dhost.name=x86_64-osx -Dconfig.name=ExtremeAssertionsBaseBaseOTFSapphire
+```
+
+RVM will be in the *dist* directory.
+
+
+### Run-time Options
+
+The following options can be used to changed Sapphire's run-time behaviour.
+
+#### ConcurrentCopyMethod
+
+Select the method used for copying concurrent with the mutator, e.g.
+```
+-X:gc:concurrentCopyMethod=always-htm2
+```
+
+--- | ---
+cas / cas2 | default per-word synchronised methods
+unsafe / unsafe2 | unsynchronised methods
+stm / mstm / stmseq / stmseq2 / stmseq2p / stmseq2n | software transactional
+htm / htm2 / mhtm | hardware transactional
+--- | ---
+
+All of these options can be prefixed with "always-" to force the method to be used for all collections.  Normally stop-the-world collection will default to *unsafe2*.  Methods postfixed with *2* use a more efficient copying order than the same method without the postfix.
+
+#### ConcurrentCopyTransactionSize
+
+Select the size of transactions for mhtm and mstm concurrent copying methods, e.g.
+```
+-X:gc:concurrentCopyTransactionSize=256
+```
+
+#### ConcurrentTriggerMethod
+
+Select the method used to trigger concurrent collection, i.e. when collection will be started.  Interacts with *ConcurrentTrigger*.
+```
+-X:gc:concurrentTriggerMethod=allocation
+```
+
+--- | ---
+allocation | pages allocated since last collection start
+OOGCAllocation | pages allocated since last collection end
+percentage | percentage of the heap allocated 
+period | microseconds since last collection start
+time | microseconds since last collection end
+--- | ---
+
+#### ConcurrentTrigger
+
+Value used with *ConcurrentTriggerMethod* may represent pages, time or a percentage.
+
+#### SapphireSTWPhase
+
+Force one or more Sapphire phases to run stop-the-world, e.g.
+```
+-X:gc:SapphireSTWPhase=flip
+```
+
+One or more of the following separated by commas:
+* alloc
+* copy
+* flip
+* root
+
