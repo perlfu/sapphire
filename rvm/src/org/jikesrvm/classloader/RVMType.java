@@ -889,6 +889,30 @@ public abstract class RVMType extends AnnotatedElement
   }
 
   /**
+   * Does this type contain a field that is Untraced?
+   */
+  public boolean containsUntracedFields() {
+    for (RVMField field : getInstanceFields()) {
+      if (field.isAnnotationDeclared(TypeReference.Untraced)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Does this type contain a field that is volatile?
+   */
+  public boolean containsVolatileFields() {
+    for (RVMField field : getInstanceFields()) {
+      if (field.isVolatile()) {
+        return true;
+      }
+    }
+    return false;
+  }
+   
+  /**
    * Offsets of reference-containing instance fields of this class type.
    * Offsets are with respect to object pointer -- see RVMField.getOffset().
    */
