@@ -19,6 +19,7 @@ import org.jikesrvm.SizeConstants;
 import org.jikesrvm.classloader.RVMArray;
 import org.jikesrvm.classloader.RVMClass;
 import org.jikesrvm.classloader.RVMType;
+import org.jikesrvm.mm.mminterface.MemoryManager;
 import org.jikesrvm.mm.mminterface.MemoryManagerConstants;
 import org.jikesrvm.runtime.Magic;
 import org.jikesrvm.runtime.Memory;
@@ -409,6 +410,27 @@ public class JavaHeader implements JavaHeaderConstants {
     return moveObject(Address.zero(), fromObj, toObj, numBytes);
   }
 
+  private static void setStatusWord(Object fromObj, Object toObj, int numBytes) {
+    if (VM.VerifyAssertions) VM._assert(ADDRESS_BASED_HASHING && DYNAMIC_HASH_OFFSET);
+
+    Word statusWord = Magic.getWordAtOffset(fromObj, STATUS_OFFSET);
+    Word hashState = statusWord.and(HASH_STATE_MASK);
+
+    if (hashState.EQ(HASH_STATE_HASHED)) {
+      int hashCode = Magic.objectAsAddress(fromObj).toWord().rshl(SizeConstants.LOG_BYTES_IN_ADDRESS).toInt();  // read fromSpace statusWord
+        Magic.setIntAtOffset(toObj, Offset.fromIntSignExtend(numBytes - OBJECT_REF_OFFSET - HASHCODE_BYTES), hashCode); // write to end of replica
+      Magic.setWordAtOffset(toObj, STATUS_OFFSET, statusWord.or(HASH_STATE_HASHED_AND_MOVED));  // write toSpace status word as HASHED+MOVED
+      if (ObjectModel.HASH_STATS) ObjectModel.hashTransition2++;
+    } else if (hashState.EQ(HASH_STATE_HASHED_AND_MOVED)) {
+      // copy hashcode
+      int hashCode = Magic.getIntAtOffset(fromObj, Offset.fromIntSignExtend(numBytes - OBJECT_REF_OFFSET - HASHCODE_BYTES));
+      Magic.setIntAtOffset(toObj, Offset.fromIntSignExtend(numBytes - OBJECT_REF_OFFSET - HASHCODE_BYTES), hashCode); // write to end of replica
+      Magic.setWordAtOffset(toObj, STATUS_OFFSET, statusWord.or(HASH_STATE_HASHED_AND_MOVED));  // write toSpace status word as HASHED+MOVED
+    } else {
+      Magic.setWordAtOffset(toObj, STATUS_OFFSET, statusWord); // just write the status word
+    }
+  }
+
   /**
    * Copy an object to the given raw storage address
    */
@@ -477,36 +499,32 @@ public class JavaHeader implements JavaHeaderConstants {
    * Get the hash code of an object.
    */
   @Inline
-  @Interruptible
   public static int getObjectHashCode(Object o) {
     if (ADDRESS_BASED_HASHING) {
       if (MemoryManagerConstants.MOVES_OBJECTS) {
-        Word hashState = Magic.getWordAtOffset(o, STATUS_OFFSET).and(HASH_STATE_MASK);
-        if (hashState.EQ(HASH_STATE_HASHED)) {
+        ObjectReference ref = MemoryManager.hashByAddress(ObjectReference.fromObject(o));
+        Object oo = ref.toObject();
+        Word s = Magic.getWordAtOffset(oo, STATUS_OFFSET).and(HASH_STATE_MASK);
+        if (VM.VerifyAssertions) VM._assert(s.NE(HASH_STATE_UNHASHED));
+        if (s.EQ(HASH_STATE_HASHED)) {
           // HASHED, NOT MOVED
-          return Magic.objectAsAddress(o).toWord().rshl(SizeConstants.LOG_BYTES_IN_ADDRESS).toInt();
-        } else if (hashState.EQ(HASH_STATE_HASHED_AND_MOVED)) {
+          return Magic.objectAsAddress(oo).toWord().rshl(SizeConstants.LOG_BYTES_IN_ADDRESS).toInt();
+        } else {
           // HASHED AND MOVED
+          if (VM.VerifyAssertions) VM._assert(s.EQ(HASH_STATE_HASHED_AND_MOVED));
           if (DYNAMIC_HASH_OFFSET) {
             // Read the size of this object.
-            RVMType t = Magic.getObjectType(o);
+            RVMType t = Magic.getObjectType(oo);
             int offset =
-                t.isArrayType() ? t.asArray().getInstanceSize(Magic.getArrayLength(o)) -
+                t.isArrayType() ? t.asArray().getInstanceSize(Magic.getArrayLength(oo)) -
                                   OBJECT_REF_OFFSET : t.asClass().getInstanceSize() - OBJECT_REF_OFFSET;
-            return Magic.getIntAtOffset(o, Offset.fromIntSignExtend(offset));
+            return Magic.getIntAtOffset(oo, Offset.fromIntSignExtend(offset));
           } else {
-            return (Magic.getIntAtOffset(o, HASHCODE_OFFSET) >>> 1);
+            return (Magic.getIntAtOffset(oo, HASHCODE_OFFSET) >>> 1);
           }
-        } else {
-          // UNHASHED
-          Word tmp;
-          do {
-            tmp = Magic.prepareWord(o, STATUS_OFFSET);
-          } while (!Magic.attemptWord(o, STATUS_OFFSET, tmp, tmp.or(HASH_STATE_HASHED)));
-          if (ObjectModel.HASH_STATS) ObjectModel.hashTransition1++;
-          return getObjectHashCode(o);
         }
       } else {
+        // no objects move, just return address
         return Magic.objectAsAddress(o).toWord().rshl(SizeConstants.LOG_BYTES_IN_ADDRESS).toInt();
       }
     } else { // 10 bit hash code in status word
@@ -516,6 +534,31 @@ public class JavaHeader implements JavaHeaderConstants {
       }
       return installHashCode(o);
     }
+  }
+
+  /**
+   * Tell if o is hashed or not.  (only used if ADDRESS_BASED_HASHING)
+   * @param o The copy of object.
+   * @return True if o is not hashed.  False if o is hashed regardless of whether it is moved or not.
+   */
+  public static boolean isUnhashed(ObjectReference o) {
+    Word s = Magic.getWordAtOffset(o.toObject(), STATUS_OFFSET);
+    return s.and(HASH_STATE_MASK).EQ(HASH_STATE_UNHASHED);
+  }
+
+  /**
+   * Make the object in the hashed state.  If it has already been hashed, do nothing.
+   * (only used if ADDRESS_BASED_HASHING)
+   * @param o
+   */
+  public static void setHashed(ObjectReference o) {
+    Object obj = o.toObject();
+    Word s;
+    do {
+      s = Magic.prepareWord(obj, STATUS_OFFSET);
+    } while (!Magic.attemptWord(o, STATUS_OFFSET, s, s.or(HASH_STATE_HASHED)));
+    if (ObjectModel.HASH_STATS)
+      ObjectModel.hashTransition1++;
   }
 
   /** Install a new hashcode (only used if !ADDRESS_BASED_HASHING) */

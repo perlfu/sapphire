@@ -255,4 +255,18 @@ public abstract class ObjectModel {
   static Offset arrayBaseOffsetTrapdoor(ObjectModel o) {
     return o.getArrayBaseOffset();
   }
+  public abstract Offset getThinLockOffset(ObjectReference o);
+  
+  /**
+   * Tell if o is hashed or not.
+   * @param o
+   * @return True if o is not hashed.  False if o is hashed regardless of whether it is moved or not.
+   */
+  public abstract boolean isUnhashed(ObjectReference o);
+
+  /**
+   * Make the object in the hashed state.  If it has already been hashed, do nothing.
+   * @param o
+   */
+  public abstract void setHashed(ObjectReference o);
 }
