@@ -2767,3 +2767,23 @@ if (VM.VerifyAssertions) VM._assert((VRRR(p) & 0x7FFFFFFF) <= 31); \\
 EMIT(CPOS(P(p), MIR_Move.create(IA32_MOV, new RegisterOperand(tmp, TypeReference.Int), Binary.getVal1(PRR(p))))); \\
 EMIT(CPOS(P(p), MIR_BinaryAcc.create(IA32_AND, new RegisterOperand(tmp, TypeReference.Int), IC(VRRR(p))))); \\
 EMIT(MIR_Test.mutate(P(p), IA32_BT, consumeMO(), new RegisterOperand(tmp, TypeReference.Int)));
+
+######
+# RTM
+######
+r:  XBEGIN
+11
+EMIT_INSTRUCTION
+EMIT(CPOS(P(p), MIR_Move.create(IA32_MOV, new RegisterOperand(getEAX(), TypeReference.Int), IC(-1)))); \\
+EMIT(CPOS(P(p), MIR_Nullary.create(IA32_XBEGIN, new RegisterOperand(getEAX(), TypeReference.Int)))); \\
+EMIT(CPOS(P(p), MIR_Move.create(IA32_MOV, Nullary.getResult(P(p)), new RegisterOperand(getEAX(), TypeReference.Int))));
+
+stm:	XEND
+11
+EMIT_INSTRUCTION
+EMIT(MIR_Empty.mutate(P(p), IA32_XEND));
+
+stm:	XABORT
+11
+EMIT_INSTRUCTION
+EMIT(MIR_Empty.mutate(P(p), IA32_XABORT));

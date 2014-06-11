@@ -2226,4 +2226,51 @@ final class BaselineMagic {
     MagicGenerator g = new IsConstantParameter();
     generators.put(getMethodReference(Magic.class, MagicNames.isConstantParameter, int.class, boolean.class), g);
   }
+  
+  /**
+   * Begin transactional memory section.
+   */
+  private static final class HTMBegin extends MagicGenerator {
+    @Override
+    void generateMagic(Assembler asm, MethodReference m, RVMMethod cm, Offset sd) {
+      asm.emitMOV_Reg_Imm(EAX, ~0);
+      //asm.emitXOR_Reg_Reg(EAX, EAX);
+      //asm.emitNOT_Reg(EAX);
+      asm.emitXBEGIN();
+      asm.emitPUSH_Reg(EAX);
+    }
+  }
+  static {
+    MagicGenerator g = new HTMBegin();
+    generators.put(getMethodReference(Magic.class, MagicNames.htmBegin, int.class), g);
+  }
+  
+  /**
+   * End transactional memory section.
+   */
+  private static final class HTMEnd extends MagicGenerator {
+    @Override
+    void generateMagic(Assembler asm, MethodReference m, RVMMethod cm, Offset sd) {
+      asm.emitXEND();
+    }
+  }
+  static {
+    MagicGenerator g = new HTMEnd();
+    generators.put(getMethodReference(Magic.class, MagicNames.htmEnd, void.class), g);
+  }
+  
+  /**
+   * Abort transactional memory section.
+   */
+  private static final class HTMAbort extends MagicGenerator {
+    @Override
+    void generateMagic(Assembler asm, MethodReference m, RVMMethod cm, Offset sd) {
+      // FIXME:
+      asm.emitXABORT(); // FIXME: abort value?
+    }
+  }
+  static {
+    MagicGenerator g = new HTMAbort();
+    generators.put(getMethodReference(Magic.class, MagicNames.htmAbort, void.class), g);
+  }
 }

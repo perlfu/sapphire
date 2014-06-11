@@ -25,6 +25,7 @@ import org.jikesrvm.compilers.opt.ir.Empty;
 import org.jikesrvm.compilers.opt.ir.GetField;
 import org.jikesrvm.compilers.opt.ir.Load;
 import org.jikesrvm.compilers.opt.ir.Move;
+import org.jikesrvm.compilers.opt.ir.Nullary;
 import org.jikesrvm.compilers.opt.ir.Operators;
 import org.jikesrvm.compilers.opt.ir.Store;
 import org.jikesrvm.compilers.opt.ir.ia32.PhysicalRegisterSet;
@@ -141,6 +142,14 @@ public abstract class GenerateMachineSpecificMagic implements Operators, Stackfr
                                             fp,
                                             new IntConstantOperand(STACKFRAME_RETURN_ADDRESS_OFFSET)));
       bc2ir.push(val.copyD2U());
+    } else if (methodName == MagicNames.htmBegin) {
+      RegisterOperand val = gc.temps.makeTempInt();
+      bc2ir.appendInstruction(Nullary.create(XBEGIN, val));
+      bc2ir.push(val.copyD2U());
+    } else if (methodName == MagicNames.htmEnd) {
+      bc2ir.appendInstruction(Empty.create(XEND));
+    } else if (methodName == MagicNames.htmAbort) {
+      bc2ir.appendInstruction(Empty.create(XABORT));
     } else {
       // Distinguish between magics that we know we don't implement
       // (and never plan to implement) and those (usually new ones)

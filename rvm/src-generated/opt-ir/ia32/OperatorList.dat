@@ -213,6 +213,27 @@ compare
 
 
 
+# RTM transaction begin
+XBEGIN
+Nullary
+none
+
+
+
+# RTM transaction end
+XEND
+Empty
+none
+
+
+
+# RTM transaction abort
+XABORT
+Empty
+none
+
+
+
 ####################
 # A call whose target is in a class that implements
 # the SaveVolatile interface.  Therefore, this
@@ -1521,6 +1542,27 @@ move
 IA32_CVTTSD2SIQ
 MIR_Unary
 move
+
+
+
+####################
+IA32_XBEGIN
+MIR_Nullary
+none
+
+
+
+####################
+IA32_XEND
+MIR_Empty
+none
+
+
+
+####################
+IA32_XABORT
+MIR_Empty
+none
 
 
 

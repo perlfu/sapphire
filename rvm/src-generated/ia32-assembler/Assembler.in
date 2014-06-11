@@ -2277,6 +2277,36 @@ public abstract class Assembler extends AbstractAssembler implements RegisterCon
     if (lister != null) lister.R(miStart, "FXCH", nonZeroReg);
   }
 
+  /** RTM Begin */
+  public final void emitXBEGIN() {
+    int miStart = mi;
+    setMachineCodes(mi++, (byte) 0xC7);
+    setMachineCodes(mi++, (byte) 0xF8);
+    setMachineCodes(mi++, (byte) 0x00);
+    setMachineCodes(mi++, (byte) 0x00);
+    setMachineCodes(mi++, (byte) 0x00);
+    setMachineCodes(mi++, (byte) 0x00);
+    if (lister != null) lister.OP(miStart, "XBEGIN");
+  }
+  
+  /** RTM End */
+  public final void emitXEND() {
+    int miStart = mi;
+    setMachineCodes(mi++, (byte) 0x0F);
+    setMachineCodes(mi++, (byte) 0x01);
+    setMachineCodes(mi++, (byte) 0xD5);
+    if (lister != null) lister.OP(miStart, "XEND");
+  }
+  
+  /** RTM Abort */
+  public final void emitXABORT() {
+    int miStart = mi;
+    setMachineCodes(mi++, (byte) 0xC6);
+    setMachineCodes(mi++, (byte) 0xF8);
+    setMachineCodes(mi++, (byte) 0x00); // FIXME: abort value
+    if (lister != null) lister.OP(miStart, "XABORT");
+  }
+
   /*
    * BELOW HERE ARE AUTOMATICALLY-GENERATED INSTRUCTIONS.  DO NOT EDIT.
    *

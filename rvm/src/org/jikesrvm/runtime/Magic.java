@@ -1190,4 +1190,29 @@ public final class Magic {
     }
     return false;
   }
+  
+  /**
+   * Begin a hardware memory transaction.
+   */
+  public static int htmBegin() {
+    if (VM.VerifyAssertions)
+      VM._assert(VM.NOT_REACHED); // call site should have been hijacked by magic in compiler
+    return 0;
+  }
+  
+  /**
+   * End a hardware memory transaction.
+   */
+  public static void htmEnd() {
+    if (VM.VerifyAssertions)
+      VM._assert(VM.NOT_REACHED); // call site should have been hijacked by magic in compiler
+  }
+  
+  /**
+   * Abort hardware memory transaction.
+   */
+  public static void htmAbort() {
+    if (VM.VerifyAssertions)
+      VM._assert(VM.NOT_REACHED); // call site should have been hijacked by magic in compiler
+  }
 }
