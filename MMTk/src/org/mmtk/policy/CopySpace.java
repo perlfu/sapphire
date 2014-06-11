@@ -29,7 +29,7 @@ import org.vmmagic.pragma.*;
  * space.  Since no state needs to be held globally or locally, all
  * methods are static.
  */
-@Uninterruptible public final class CopySpace extends Space
+@Uninterruptible public class CopySpace extends Space
   implements Constants {
 
   /****************************************************************************
@@ -55,7 +55,7 @@ import org.vmmagic.pragma.*;
   /**
    *
    */
-  private boolean fromSpace = true;
+  protected boolean fromSpace = true;
 
   public boolean isFromSpace() {
     return fromSpace;
