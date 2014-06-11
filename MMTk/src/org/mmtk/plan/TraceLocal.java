@@ -95,9 +95,17 @@ public abstract class TraceLocal extends TransitiveClosure implements Constants 
   @Inline
   public final void processEdge(ObjectReference source, Address slot) {
     ObjectReference object = VM.activePlan.global().loadObjectReference(slot);
+    if (VM.VERIFY_ASSERTIONS) {
+      if (!object.isNull() && !Space.isMappedObject(object)) {
+        Log.write("About to trace: "); Log.writeln(object);
+        Log.write("Obtained from source: "); Log.writeln(source);
+        VM.objectModel.dumpObject(source);
+        VM.assertions._assert(Space.isMappedObject(object));
+      }
+    }
     ObjectReference newObject = traceObject(object, false);
     if (overwriteReferenceDuringTrace()) {
-      VM.activePlan.global().storeObjectReference(slot, newObject);
+      VM.activePlan.global().storeObjectReference(slot, newObject); 
     }
   }
 
@@ -211,6 +219,13 @@ public abstract class TraceLocal extends TransitiveClosure implements Constants 
   @Override
   @Inline
   public final void processNode(ObjectReference object) {
+    if (VM.VERIFY_ASSERTIONS) {
+      if (!Space.isMappedObject(object)) {
+        Log.write("Have been asked to process: ");
+        Log.writeln(object);
+        VM.assertions._assert(Space.isMappedObject(object));
+      }
+    }
     values.push(object);
   }
 

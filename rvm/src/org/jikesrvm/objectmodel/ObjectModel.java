@@ -913,6 +913,12 @@ public class ObjectModel implements JavaHeaderConstants, SizeConstants {
     VM.sysWrite(Magic.objectAsAddress(getTIB(ref)));
     JavaHeader.dumpHeader(ref);
     MiscHeader.dumpHeader(ref);
+    for (int i = 0; i < GC_HEADER_BYTES; i += BYTES_IN_WORD) {
+      VM.sysWrite(" GC+");
+      VM.sysWrite(i);
+      VM.sysWrite("=");
+      VM.sysWriteHex(Magic.getWordAtOffset(ref, GC_HEADER_OFFSET.plus(i)).toAddress());
+    }
   }
 
   /**

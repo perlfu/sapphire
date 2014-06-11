@@ -75,6 +75,13 @@ public final class TraceWriteBuffer extends TransitiveClosure {
   @Override
   @Inline
   public void processNode(ObjectReference object) {
+    if (VM.VERIFY_ASSERTIONS) {
+      if (!Space.isMappedObject(object)) {
+        Log.write("Have been asked to process: ");
+        Log.writeln(object);
+        VM.assertions._assert(Space.isMappedObject(object));
+      }
+    }
     buffer.insert(object.toAddress());
   }
 }
