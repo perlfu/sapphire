@@ -920,6 +920,22 @@ public class ObjectModel implements JavaHeaderConstants, SizeConstants {
   public static void baselineEmitLoadTIB(Assembler asm, int dest, int object) {
     JavaHeader.baselineEmitLoadTIB(asm, dest, object);
   }
+
+  /** Tell if o is hashed or not.
+   * @param o
+   * @return True if o is not hashed.  False if o is hashed regardless of whether it is moved or not.
+   */
+  public static boolean isUnhashed(ObjectReference o) {
+    return JavaHeader.isUnhashed(o);
+  }
+
+  /**
+   * Make the object in the hashed state.  If it has already been hashed, do nothing.
+   * @param o
+   */
+  public static void setHashed(ObjectReference o) {
+    JavaHeader.setHashed(o);
+  }
 }
 
 

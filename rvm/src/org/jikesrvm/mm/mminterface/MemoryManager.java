@@ -1162,5 +1162,53 @@ public final class MemoryManager implements HeapLayoutConstants, Constants {
     return new int[n];
   }
 
+  /***********************************************************************
+   *
+   * Address based hashcode
+   */
+
+  /**
+   * Prepare the given object for getting its hashcode.  Make its hash state HASHED
+   * in the typical implementation.
+   *
+   * @param obj The object of which we will take a hashcode
+   * @return The copy of the object from whose address the VM should generate the hashcode.
+   */
+  public static ObjectReference hashByAddress(ObjectReference obj) {
+    return Selected.Mutator.get().hashByAddress(obj);
+  }
+
+  /***********************************************************************
+  *
+  * Status word
+  */
+
+  public static Object metaLockObject(Object o) {
+    ObjectReference r = ObjectReference.fromObject(o);
+    ObjectReference rr = Selected.Mutator.get().metaLockObject(r);
+    return rr.toObject();
+  }
+
+  public static void metaUnlockObject(Object o) {
+    ObjectReference r = ObjectReference.fromObject(o);
+    Selected.Mutator.get().metaUnlockObject(r);
+  }
+  
+  /***********************************************************************
+  *
+  * Debugging
+  */
+  
+  public static final boolean hasDebuggingEnabled() {
+    return org.mmtk.vm.VM.DEBUG;
+  }
+  
+  public static org.jikesrvm.mm.mmtk.Debug getDebugging() {
+    return (org.jikesrvm.mm.mmtk.Debug) org.mmtk.vm.VM.debugging;
+  }
+  
+  public static String getGCPhaseName(short phaseId) {
+    return Phase.getName(phaseId);
+  } 
 }
 

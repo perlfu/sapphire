@@ -14,6 +14,8 @@ package org.jikesrvm.scheduler;
 
 import org.jikesrvm.VM;
 import org.jikesrvm.Services;
+import org.jikesrvm.mm.mminterface.Barriers;
+import org.jikesrvm.mm.mminterface.MemoryManager;
 import org.jikesrvm.objectmodel.ThinLockConstants;
 import org.jikesrvm.runtime.Magic;
 import org.vmmagic.pragma.Inline;
@@ -30,16 +32,19 @@ import org.vmmagic.unboxed.Word;
 @Uninterruptible
 public final class ThinLock implements ThinLockConstants {
 
-  private static final boolean ENABLE_BIASED_LOCKING = true;
+  private static final boolean SUPPORTS_BIASED_LOCKING = Barriers.SUPPORTS_BIASED_LOCKING;
+  private static final boolean ENABLE_BIASED_LOCKING = SUPPORTS_BIASED_LOCKING;
 
   @Inline
   @NoNullCheck
   @Unpreemptible
   public static void inlineLock(Object o, Offset lockOffset) {
-    Word old = Magic.prepareWord(o, lockOffset); // FIXME: bad for PPC?
+    Object oo = MemoryManager.metaLockObject(o);
+    Word old = Magic.prepareWord(oo, lockOffset); // FIXME: bad for PPC?
     Word id = old.and(TL_THREAD_ID_MASK.or(TL_STAT_MASK));
     Word tid = Word.fromIntSignExtend(RVMThread.getCurrentThread().getLockingId());
     if (id.EQ(tid)) {
+      if (!SUPPORTS_BIASED_LOCKING) VM.sysFail("Biased locking is not supported.");
       Word changed = old.plus(TL_LOCK_COUNT_UNIT);
       if (!changed.and(TL_LOCK_COUNT_MASK).isZero()) {
         setDedicatedU16(o, lockOffset, changed);
@@ -47,11 +52,14 @@ public final class ThinLock implements ThinLockConstants {
       }
     } else if (id.EQ(TL_STAT_THIN)) {
       // lock is thin and not held by anyone
-      if (Magic.attemptWord(o, lockOffset, old, old.or(tid))) {
+      if (Magic.attemptWord(oo, lockOffset, old, old.or(tid))) {
         Magic.isync();
+        MemoryManager.metaUnlockObject(oo);
         return;
       }
     }
+    MemoryManager.metaUnlockObject(oo);
+    oo = null; // Ugawa: oo can have to-space pointer which can confuse GC
     lock(o, lockOffset);
   }
 
@@ -59,20 +67,25 @@ public final class ThinLock implements ThinLockConstants {
   @NoNullCheck
   @Unpreemptible
   public static void inlineUnlock(Object o, Offset lockOffset) {
-    Word old = Magic.prepareWord(o, lockOffset); // FIXME: bad for PPC?
+    Object oo = MemoryManager.metaLockObject(o);
+    Word old = Magic.prepareWord(oo, lockOffset); // FIXME: bad for PPC?
     Word id = old.and(TL_THREAD_ID_MASK.or(TL_STAT_MASK));
     Word tid = Word.fromIntSignExtend(RVMThread.getCurrentThread().getLockingId());
     if (id.EQ(tid)) {
+      if (!SUPPORTS_BIASED_LOCKING) VM.sysFail("Biased locking is not supported.");
       if (!old.and(TL_LOCK_COUNT_MASK).isZero()) {
         setDedicatedU16(o, lockOffset, old.minus(TL_LOCK_COUNT_UNIT));
         return;
       }
     } else if (old.xor(tid).rshl(TL_LOCK_COUNT_SHIFT).EQ(TL_STAT_THIN.rshl(TL_LOCK_COUNT_SHIFT))) {
       Magic.sync();
-      if (Magic.attemptWord(o, lockOffset, old, old.and(TL_UNLOCK_MASK).or(TL_STAT_THIN))) {
+      if (Magic.attemptWord(oo, lockOffset, old, old.and(TL_UNLOCK_MASK).or(TL_STAT_THIN))) {
+        MemoryManager.metaUnlockObject(oo);
         return;
       }
     }
+    MemoryManager.metaUnlockObject(oo);
+    oo = null; // Ugawa: oo can have to-space pointer which can confuse GC
     unlock(o, lockOffset);
   }
 
@@ -85,13 +98,15 @@ public final class ThinLock implements ThinLockConstants {
     Word threadId = Word.fromIntZeroExtend(RVMThread.getCurrentThread().getLockingId());
 
     for (int cnt=0;;cnt++) {
-      Word old = Magic.getWordAtOffset(o, lockOffset);
+      Object oo = MemoryManager.metaLockObject(o);
+      Word old = Magic.getWordAtOffset(oo, lockOffset);
       Word stat = old.and(TL_STAT_MASK);
       boolean tryToInflate=false;
       if (stat.EQ(TL_STAT_BIASABLE)) {
         Word id = old.and(TL_THREAD_ID_MASK);
         if (id.isZero()) {
           if (ENABLE_BIASED_LOCKING) {
+            if (!SUPPORTS_BIASED_LOCKING) VM.sysFail("Biased locking is not supported");
             // lock is unbiased, bias it in our favor and grab it
             if (Synchronization.tryCompareAndSwap(
                   o, lockOffset,
@@ -104,15 +119,17 @@ public final class ThinLock implements ThinLockConstants {
             // lock is unbiased but biasing is NOT allowed, so turn it into
             // a thin lock
             if (Synchronization.tryCompareAndSwap(
-                  o, lockOffset,
+                  oo, lockOffset,
                   old,
                   old.or(threadId).or(TL_STAT_THIN))) {
               Magic.isync();
+              MemoryManager.metaUnlockObject(oo);
               return;
             }
           }
         } else if (id.EQ(threadId)) {
           // lock is biased in our favor
+          if (!SUPPORTS_BIASED_LOCKING) VM.sysFail("Biased locking is not supported");
           Word changed = old.plus(TL_LOCK_COUNT_UNIT);
           if (!changed.and(TL_LOCK_COUNT_MASK).isZero()) {
             setDedicatedU16(o, lockOffset, changed);
@@ -121,6 +138,7 @@ public final class ThinLock implements ThinLockConstants {
             tryToInflate=true;
           }
         } else {
+          if (!SUPPORTS_BIASED_LOCKING) VM.sysFail("Biased locking is not supported");
           if (casFromBiased(o, lockOffset, old, biasBitsToThinBits(old), cnt)) {
             continue; // don't spin, since it's thin now
           }
@@ -129,8 +147,9 @@ public final class ThinLock implements ThinLockConstants {
         Word id = old.and(TL_THREAD_ID_MASK);
         if (id.isZero()) {
           if (Synchronization.tryCompareAndSwap(
-                o, lockOffset, old, old.or(threadId))) {
+                oo, lockOffset, old, old.or(threadId))) {
             Magic.isync();
+            MemoryManager.metaUnlockObject(oo);
             return;
           }
         } else if (id.EQ(threadId)) {
@@ -138,14 +157,19 @@ public final class ThinLock implements ThinLockConstants {
           if (changed.and(TL_LOCK_COUNT_MASK).isZero()) {
             tryToInflate=true;
           } else if (Synchronization.tryCompareAndSwap(
-                       o, lockOffset, old, changed)) {
+                       oo, lockOffset, old, changed)) {
             Magic.isync();
+            MemoryManager.metaUnlockObject(oo);
             return;
           }
         } else if (cnt>retryLimit) {
           tryToInflate=true;
         }
+        MemoryManager.metaUnlockObject(oo);
+        oo = null; // Ugawa: oo can have to-space pointer which can confuse GC
       } else {
+        MemoryManager.metaUnlockObject(oo);
+        oo = null; // Ugawa: oo can have to-space pointer which can confuse GC
         if (VM.VerifyAssertions) VM._assert(stat.EQ(TL_STAT_FAT));
         // lock is fat.  contend on it.
         if (Lock.getLock(getLockIndex(old)).lockHeavy(o)) {
@@ -176,9 +200,11 @@ public final class ThinLock implements ThinLockConstants {
   public static void unlock(Object o, Offset lockOffset) {
     Word threadId = Word.fromIntZeroExtend(RVMThread.getCurrentThread().getLockingId());
     for (int cnt=0;;cnt++) {
-      Word old = Magic.getWordAtOffset(o, lockOffset);
+      Object oo = MemoryManager.metaLockObject(o);
+      Word old = Magic.getWordAtOffset(oo, lockOffset);
       Word stat = old.and(TL_STAT_MASK);
       if (stat.EQ(TL_STAT_BIASABLE)) {
+        if (!SUPPORTS_BIASED_LOCKING) VM.sysFail("Biased locking is not supported");
         Word id = old.and(TL_THREAD_ID_MASK);
         if (id.EQ(threadId)) {
           if (old.and(TL_LOCK_COUNT_MASK).isZero()) {
@@ -200,7 +226,8 @@ public final class ThinLock implements ThinLockConstants {
             changed = old.minus(TL_LOCK_COUNT_UNIT);
           }
           if (Synchronization.tryCompareAndSwap(
-                o, lockOffset, old, changed)) {
+                oo, lockOffset, old, changed)) {
+            MemoryManager.metaUnlockObject(oo);
             return;
           }
         } else {
@@ -208,9 +235,15 @@ public final class ThinLock implements ThinLockConstants {
             VM.sysWriteln("threadId = ",threadId);
             VM.sysWriteln("id = ",id);
           }
+          MemoryManager.metaUnlockObject(oo);
+          oo = null; // Ugawa: oo can have to-space pointer which can confuse GC
           RVMThread.raiseIllegalMonitorStateException("thin unlocking: we don't own this object", o);
         }
+        MemoryManager.metaUnlockObject(oo);
+        oo = null; // Ugawa: oo can have to-space pointer which can confuse GC
       } else {
+        MemoryManager.metaUnlockObject(oo);
+        oo = null; // Ugawa: oo can have to-space pointer which can confuse GC
         if (VM.VerifyAssertions) VM._assert(stat.EQ(TL_STAT_FAT));
         // fat unlock
         Lock.getLock(getLockIndex(old)).unlockHeavy(o);
@@ -224,7 +257,10 @@ public final class ThinLock implements ThinLockConstants {
   public static boolean holdsLock(Object o, Offset lockOffset, RVMThread thread) {
     for (int cnt=0;;++cnt) {
       int tid = thread.getLockingId();
-      Word bits = Magic.getWordAtOffset(o, lockOffset);
+      Object oo = MemoryManager.metaLockObject(o);
+      Word bits = Magic.getWordAtOffset(oo, lockOffset);
+      MemoryManager.metaUnlockObject(oo);
+      oo = null; // Ugawa: oo can have to-space pointer which can confuse GC
       if (bits.and(TL_STAT_MASK).EQ(TL_STAT_BIASABLE)) {
         // if locked, then it is locked with a thin lock
         return
@@ -316,6 +352,7 @@ public final class ThinLock implements ThinLockConstants {
   @Inline
   @Unpreemptible
   private static void setDedicatedU16(Object o, Offset lockOffset, Word value) {
+    if (!SUPPORTS_BIASED_LOCKING) VM.sysFail("Biased locking is not supported");
     Magic.setCharAtOffset(o, lockOffset.plus(TL_DEDICATED_U16_OFFSET), (char)(value.toInt() >>> TL_DEDICATED_U16_SHIFT));
   }
 
@@ -324,6 +361,7 @@ public final class ThinLock implements ThinLockConstants {
   public static boolean casFromBiased(Object o, Offset lockOffset,
                                       Word oldLockWord, Word changed,
                                       int cnt) {
+    if (!SUPPORTS_BIASED_LOCKING) VM.sysFail("Biased locking is not supported");
     RVMThread me=RVMThread.getCurrentThread();
     Word id=oldLockWord.and(TL_THREAD_ID_MASK);
     if (id.isZero()) {
@@ -363,7 +401,7 @@ public final class ThinLock implements ThinLockConstants {
         if (false) VM.sysWriteln("done with that");
 
         Word newLockWord=Magic.getWordAtOffset(o, lockOffset);
-        result=Synchronization.tryCompareAndSwap(
+        result = Synchronization.tryCompareAndSwap(
           o, lockOffset, oldLockWord, changed);
         owner.endPairHandshake();
         if (false) VM.sysWriteln("that worked.");
@@ -403,6 +441,7 @@ public final class ThinLock implements ThinLockConstants {
       return Synchronization.tryCompareAndSwap(
         o, lockOffset, oldLockWord, changed);
     } else {
+      if (!SUPPORTS_BIASED_LOCKING) VM.sysFail("Biased locking is not supported");
       return casFromBiased(o, lockOffset, oldLockWord, changed, cnt);
     }
   }
@@ -426,7 +465,8 @@ public final class ThinLock implements ThinLockConstants {
     if (false) VM.sysWriteln("l = ",Magic.objectAsAddress(l));
     l.mutex.lock();
     for (int cnt=0;;++cnt) {
-      Word bits = Magic.getWordAtOffset(o, lockOffset);
+      Object oo = MemoryManager.metaLockObject(o);
+      Word bits = Magic.getWordAtOffset(oo, lockOffset);
       // check to see if another thread has already created a fat lock
       if (isFat(bits)) {
         if (trace) {
@@ -436,26 +476,32 @@ public final class ThinLock implements ThinLockConstants {
         }
         Lock result = Lock.getLock(getLockIndex(bits));
         if (result==null ||
-            result.lockedObject!=o) {
+            result.lockedObject!=o) { // Ugawa: lockedObject points at from-space except during flip phase.  In flip phase, we have eq-barrier.
+          MemoryManager.metaUnlockObject(oo);
+          oo = null; // Ugawa: oo can have to-space pointer which can confuse GC
           continue; /* this is nasty.  this will happen when a lock
                        is deflated. */
         }
         Lock.free(l);
         l.mutex.unlock();
+        MemoryManager.metaUnlockObject(oo);
         return result;
       }
       if (VM.VerifyAssertions) VM._assert(l!=null);
       if (attemptToMarkInflated(
-            o, lockOffset, bits, l.index, cnt)) {
-        l.setLockedObject(o);
+            oo, lockOffset, bits, l.index, cnt)) {
+        l.setLockedObject(o); // Ugawa: Mutator should write backward pointer pointing at the copy that the mutator has.  Otherwise, mutator can see a to-space pointer before the flip phase.
         l.setOwnerId(getLockOwner(bits));
         if (l.getOwnerId() != 0) {
           l.setRecursionCount(getRecCount(bits));
         } else {
           if (VM.VerifyAssertions) VM._assert(l.getRecursionCount()==0);
         }
+        MemoryManager.metaUnlockObject(oo);
         return l;
       }
+      MemoryManager.metaUnlockObject(oo);
+      oo = null; // Ugawa: oo can have to-space pointer which can confuse GC
       // contention detected, try again
     }
   }
@@ -491,12 +537,16 @@ public final class ThinLock implements ThinLockConstants {
   @Uninterruptible
   public static void markDeflated(Object o, Offset lockOffset, int id) {
     for (;;) {
-      Word bits=Magic.getWordAtOffset(o, lockOffset);
+      Object oo = MemoryManager.metaLockObject(o);
+      Word bits=Magic.getWordAtOffset(oo, lockOffset);
       if (VM.VerifyAssertions) VM._assert(isFat(bits));
       if (VM.VerifyAssertions) VM._assert(getLockIndex(bits)==id);
-      if (attemptToMarkDeflated(o, lockOffset, bits)) {
+      if (attemptToMarkDeflated(oo, lockOffset, bits)) {
+        MemoryManager.metaUnlockObject(oo);
         return;
       }
+      MemoryManager.metaUnlockObject(oo);
+      oo = null; // Ugawa: oo can have to-space pointer which can confuse GC
     }
   }
 
@@ -564,7 +614,10 @@ public final class ThinLock implements ThinLockConstants {
    */
   @Unpreemptible
   public static Lock getHeavyLock(Object o, Offset lockOffset, boolean create) {
-    Word old = Magic.getWordAtOffset(o, lockOffset);
+    Object oo = MemoryManager.metaLockObject(o); // inefficient: we do not need meta-lock
+    Word old = Magic.getWordAtOffset(oo, lockOffset);
+    MemoryManager.metaUnlockObject(oo);
+    oo = null; // Ugawa: oo can have to-space pointer which can confuse GC
     if (isFat(old)) { // already a fat lock in place
       return Lock.getLock(getLockIndex(old));
     } else if (create) {

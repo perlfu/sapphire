@@ -260,6 +260,36 @@ public abstract class MutatorContext implements Constants {
     return null;
   }
 
+  /***********************************************************************
+   *
+   * Address based hashcode
+   */
+
+  /**
+   * Prepare the given object for getting its hashcode.  Make its hash state HASHED
+   * in the typical implementation.
+   *
+   * @param obj The object of which we will take a hashcode
+   * @return The copy of the object from whose address the VM should generate the hashcode.
+   */
+  public ObjectReference hashByAddress(ObjectReference obj) {
+    if (VM.objectModel.isUnhashed(obj))
+      VM.objectModel.setHashed(obj);
+    return obj;
+  }
+
+  /**
+   * Prepare for read/write to status word.
+   * @param obj The object whose status word we attmpt to read/write
+   * @return The copy of the object which we can contact
+   */
+  public ObjectReference metaLockObject(ObjectReference obj) {
+    return obj;
+  }
+
+  public void metaUnlockObject(ObjectReference obj) {
+  }
+
   /****************************************************************************
    *
    * Write and read barriers. By default do nothing, override if
