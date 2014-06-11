@@ -112,7 +112,7 @@ public abstract class MutatorContext implements Constants {
   protected final Log log = new Log();
 
   /** Per-mutator allocator into the immortal space */
-  protected final BumpPointer immortal = new ImmortalLocal(Plan.immortalSpace);
+  protected final ImmortalLocal immortal = new ImmortalLocal(Plan.immortalSpace);
 
   /** Per-mutator allocator into the large object space */
   protected final LargeObjectLocal los = new LargeObjectLocal(Plan.loSpace);
@@ -328,7 +328,7 @@ public abstract class MutatorContext implements Constants {
     if (VM.VERIFY_ASSERTIONS) VM.assertions._assert(false);
     return ObjectReference.nullReference();
   }
-
+  
   /**
    * Write a boolean. Take appropriate write barrier actions.<p>
    *
