@@ -19,6 +19,7 @@ import org.mmtk.utility.options.MarkSweepMarkBits;
 import org.mmtk.utility.options.EagerCompleteSweep;
 import org.mmtk.utility.Constants;
 import org.mmtk.utility.HeaderByte;
+import org.mmtk.utility.Log;
 
 import org.mmtk.vm.VM;
 
@@ -81,6 +82,7 @@ public final class MarkSweepSpace extends SegregatedFreeListSpace implements Con
   private static final boolean usingStickyMarkBits = VM.activePlan.constraints().needsLogBitInHeader(); /* are sticky mark bits in use? */
   private boolean isAgeSegregated = false; /* is this space a nursery space? */
   private boolean isAllocAsMarked = false;
+  private boolean isZeroUnmarked = false;
 
   /****************************************************************************
    *
@@ -155,7 +157,14 @@ public final class MarkSweepSpace extends SegregatedFreeListSpace implements Con
     }
 
     if (LAZY_SWEEP) {
-      return makeFreeList(block, sizeClass);
+      // A free list can only be safely constructed outside GC
+      Address freeList = Address.zero();
+      lock.acquire();
+      if (!inMSCollection) {
+        freeList = makeFreeList(block, sizeClass);
+      }
+      lock.release();
+      return freeList;
     } else {
       return getFreeList(block);
     }
@@ -187,6 +196,7 @@ public final class MarkSweepSpace extends SegregatedFreeListSpace implements Con
    * @param gcWholeMS True if we are going to collect the whole marksweep space
    */
   public void prepare(boolean gcWholeMS) {
+    lock.acquire();
     if (HEADER_MARK_BITS && Options.eagerCompleteSweep.getValue()) {
       consumeBlocks();
     } else {
@@ -205,6 +215,7 @@ public final class MarkSweepSpace extends SegregatedFreeListSpace implements Con
       zeroLiveBits();
     }
     inMSCollection = true;
+    lock.release();
   }
 
   /**
@@ -310,6 +321,10 @@ public final class MarkSweepSpace extends SegregatedFreeListSpace implements Con
     byte mask = (byte) (((1 << Options.markSweepMarkBits.getValue()) - 1)<<COUNT_BASE);
     byte rtn = (byte) (increment ? markState + MARK_COUNT_INCREMENT : markState - MARK_COUNT_INCREMENT);
     rtn &= mask;
+    if (isZeroUnmarked && (rtn == 0)) {
+      rtn = (byte) (increment ? rtn + MARK_COUNT_INCREMENT : rtn - MARK_COUNT_INCREMENT);
+      rtn &= mask;
+    }
     if (VM.VERIFY_ASSERTIONS) VM.assertions._assert((markState & ~MARK_COUNT_MASK) == 0);
     return rtn;
   }
@@ -361,6 +376,26 @@ public final class MarkSweepSpace extends SegregatedFreeListSpace implements Con
     } else if (HeaderByte.NEEDS_UNLOGGED_BIT)
       HeaderByte.markAsUnlogged(object);
   }
+  
+  /**
+   * Perform any required initialization of the GC portion of the header.
+   *
+   * @param object the object ref to the storage to be initialized
+   * @param state the state of the mark bits to be written in the header
+   * @param alloc is this initialization occuring due to (initial) allocation
+   * (true) or due to copying (false)?
+   */
+  @Inline
+  public void initializeHeader(ObjectReference object, byte state, boolean alloc) {
+    if (VM.VERIFY_ASSERTIONS) VM.assertions._assert(HEADER_MARK_BITS);
+
+    byte oldValue = VM.objectModel.readAvailableByte(object);
+    byte newValue = (byte) ((oldValue & ~MARK_COUNT_MASK) | state);
+    VM.objectModel.writeAvailableByte(object, newValue);
+    
+    // Make sure to mark block if we won't be marking this allocation later
+    if (inMSCollection && (state == markState)) markBlock(object);
+  }
 
   /**
    * Atomically attempt to set the mark bit of an object.  Return true
@@ -369,7 +404,7 @@ public final class MarkSweepSpace extends SegregatedFreeListSpace implements Con
    * @param object The object whose mark bit is to be set
    */
   @Inline
-  private boolean testAndMark(ObjectReference object) {
+  public boolean testAndMark(ObjectReference object) {
     byte oldValue, markBits, newValue;
     oldValue = VM.objectModel.readAvailableByte(object);
     markBits = (byte) (oldValue & MARK_COUNT_MASK);
@@ -391,8 +426,57 @@ public final class MarkSweepSpace extends SegregatedFreeListSpace implements Con
     if (VM.VERIFY_ASSERTIONS) VM.assertions._assert((markState & ~MARK_COUNT_MASK) == 0);
     return (VM.objectModel.readAvailableByte(object) & MARK_COUNT_MASK) == markState;
   }
-
+  
+  /**
+   * Return true if the mark count for an object has a value.
+   * This indicates that the object has at some point been marked (and not cleared).
+   *
+   * @param object The object whose mark bit is to be tested
+   * @return <code>true</code> if the mark bit for the object has a value.
+   */
+  @Inline
+  public boolean hasMarking(ObjectReference object) {
+    if (VM.VERIFY_ASSERTIONS) VM.assertions._assert(isZeroUnmarked);
+    if (VM.VERIFY_ASSERTIONS) VM.assertions._assert((markState & ~MARK_COUNT_MASK) == 0);
+    return (VM.objectModel.readAvailableByte(object) & MARK_COUNT_MASK) != 0;
+  }
+  
+  /**
+   * Atomically clear the mark bit of an object.
+   *
+   * @param object The object whose mark bit is to be cleared
+   */
+  @Inline
+  public void clearMarkState(ObjectReference object) {
+    if (VM.VERIFY_ASSERTIONS) VM.assertions._assert(isZeroUnmarked);
+    byte oldValue, newValue;
+    oldValue = VM.objectModel.readAvailableByte(object);
+    newValue = (byte)(oldValue & ~MARK_COUNT_MASK);
+    if (HeaderByte.NEEDS_UNLOGGED_BIT) newValue |= HeaderByte.UNLOGGED_BIT;
+    VM.objectModel.writeAvailableByte(object, newValue);
+  }
+  
+  /**
+   * Get the present mark bits
+   * 
+   * @return the current markState
+   */
+  @Inline
+  public byte getMarkState() {
+    return markState;
+  }
+  
   public void makeAllocAsMarked() {
+    if (VM.VERIFY_ASSERTIONS) VM.assertions._assert(!isAllocAsMarked);
     isAllocAsMarked = true;
+  }
+  
+  public void zeroAsUnmarked() {
+    if (VM.VERIFY_ASSERTIONS) VM.assertions._assert(!isZeroUnmarked);
+    isZeroUnmarked = true;
+    if (allocState == 0) {
+      allocState = markState;
+      markState = deltaMarkState(true);
+    }
   }
 }

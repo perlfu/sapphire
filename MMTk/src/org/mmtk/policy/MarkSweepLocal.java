@@ -16,6 +16,7 @@ import org.mmtk.utility.alloc.SegregatedFreeListLocal;
 import org.mmtk.utility.Constants;
 
 import org.vmmagic.pragma.*;
+import org.vmmagic.unboxed.ObjectReference;
 
 /**
  * This class implements unsynchronized (local) elements of a
@@ -46,6 +47,12 @@ public final class MarkSweepLocal extends SegregatedFreeListLocal<MarkSweepSpace
    *
    * Initialization
    */
+  
+  /****************************************************************************
+  *
+  * Instance variables
+  */
+  private byte allocState;
 
   /**
    * Constructor
@@ -55,6 +62,20 @@ public final class MarkSweepLocal extends SegregatedFreeListLocal<MarkSweepSpace
    */
   public MarkSweepLocal(MarkSweepSpace space) {
     super(space);
+  }
+  
+  /****************************************************************************
+   *
+   * Allocation
+   */
+  /**
+   * Perform any required initialization of the GC portion of the header.
+   *
+   * @param object the object ref to the storage to be initialized
+   */
+  @Inline
+  public void initializeHeader(ObjectReference object) {
+    ((MarkSweepSpace) space).initializeHeader(object, allocState, true);
   }
 
   /****************************************************************************
@@ -67,6 +88,20 @@ public final class MarkSweepLocal extends SegregatedFreeListLocal<MarkSweepSpace
    */
   public void prepare() {
     flush();
+  }
+  
+  /*
+   * Initialize for on-the-fly collection.
+   */
+  public void initThreadForOTFCollection() {
+    prepareOTFCollection();
+  }
+  
+  /**
+   * Prepare for an on-the-fly collection.
+   */
+  public void prepareOTFCollection() {
+    allocState = ((MarkSweepSpace) space).getMarkState();
   }
 
   /**

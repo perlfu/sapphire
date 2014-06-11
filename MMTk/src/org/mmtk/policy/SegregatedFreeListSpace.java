@@ -14,11 +14,13 @@ package org.mmtk.policy;
 
 import org.mmtk.utility.alloc.BlockAllocator;
 import org.mmtk.utility.alloc.EmbeddedMetaData;
+import org.mmtk.utility.alloc.LinearScan;
 import org.mmtk.utility.heap.FreeListPageResource;
 import org.mmtk.utility.heap.Map;
 import org.mmtk.utility.heap.VMRequest;
 import org.mmtk.utility.Constants;
 import org.mmtk.utility.Conversions;
+import org.mmtk.utility.Log;
 import org.mmtk.utility.Memory;
 
 import org.mmtk.vm.Lock;
@@ -49,6 +51,7 @@ public abstract class SegregatedFreeListSpace extends Space implements Constants
    */
   protected static final boolean LAZY_SWEEP = true;
   private static final boolean COMPACT_SIZE_CLASSES = false;
+  private static final boolean VERIFY_BLOCK_LIVENESS = false;
   protected static final int MIN_CELLS = 6;
   protected static final int MAX_CELLS = 99; // (1<<(INUSE_BITS-1))-1;
   protected static final int MAX_CELL_SIZE = 8<<10;
@@ -528,6 +531,7 @@ public abstract class SegregatedFreeListSpace extends Space implements Constants
   protected final Address sweepBlock(Address block, int sizeClass, Extent blockSize, Address availableHead, boolean clearMarks) {
     boolean liveBlock = containsLiveCell(block, blockSize, clearMarks);
     if (!liveBlock) {
+      if (VERIFY_BLOCK_LIVENESS) verifyBlockIsDead(block, sizeClass, blockSize);
       BlockAllocator.setNext(block, Address.zero());
       BlockAllocator.free(this, block);
     } else {
@@ -824,7 +828,7 @@ public abstract class SegregatedFreeListSpace extends Space implements Constants
    * @param object The object whose blocks liveness is to be set.
    */
   @Inline
-  protected static void markBlock(ObjectReference object) {
+  public static void markBlock(ObjectReference object) {
     BlockAllocator.markBlockMeta(object);
   }
 
@@ -1009,5 +1013,77 @@ public abstract class SegregatedFreeListSpace extends Space implements Constants
   private static Address getLiveWordAddress(Address address) {
     Address rtn = EmbeddedMetaData.getMetaDataBase(address);
     return rtn.plus(META_DATA_OFFSET).plus(EmbeddedMetaData.getMetaDataOffset(address, LOG_LIVE_COVERAGE, LOG_BYTES_IN_WORD));
+  }
+  
+  /**
+   * Perform a linear scan through the objects in this space.
+   *
+   * @param scanner The scan object to delegate scanning to.
+   */
+  public void linearScan(LinearScan scanner) {
+    lock.acquire();
+    for (int sizeClass = 0; sizeClass < sizeClassCount(); sizeClass++) {
+      Extent blockSize = Extent.fromIntSignExtend(BlockAllocator.blockSize(blockSizeClass[sizeClass]));
+      /* Flushed blocks */
+      Address block = flushedBlockHead.get(sizeClass);
+      while (!block.isZero()) {
+        Address next = BlockAllocator.getNext(block);
+        scanBlock(scanner, block, sizeClass, blockSize);
+        block = next;
+      }
+      /* Consumed blocks */
+      block = consumedBlockHead.get(sizeClass);
+      while (!block.isZero()) {
+        Address next = BlockAllocator.getNext(block);
+        scanBlock(scanner, block, sizeClass, blockSize);
+        block = next;
+      }
+      /* Available blocks */
+      block = availableBlockHead.get(sizeClass);
+      while (!block.isZero()) {
+        Address next = BlockAllocator.getNext(block);
+        scanBlock(scanner, block, sizeClass, blockSize);
+        block = next;
+      }
+    }
+    lock.release();
+  }
+  
+  /**
+   * Scan through a block reporting objects to the scanner.
+   */
+  @Inline
+  public void scanBlock(LinearScan scanner, Address block, int sizeClass, Extent blockSize) {
+    Address cursor = block.plus(blockHeaderSize[sizeClass]);
+    Address end = block.plus(blockSize);
+    Extent cellExtent = Extent.fromIntSignExtend(cellSize[sizeClass]);
+    while (cursor.LT(end)) {
+      ObjectReference current = VM.objectModel.getObjectFromStartAddress(cursor);
+      if (!current.isNull()) {
+        scanner.scan(current, isCellLive(current), cursor, cellExtent);
+      }
+      cursor = cursor.plus(cellExtent);
+    }
+  }
+  
+  /**
+   * Scan through a reporting any live objects.
+   */
+  public void verifyBlockIsDead(Address block, int sizeClass, Extent blockSize) {
+    Address cursor = block.plus(blockHeaderSize[sizeClass]);
+    Address end = block.plus(blockSize);
+    Extent cellExtent = Extent.fromIntSignExtend(cellSize[sizeClass]);
+    boolean live = false;
+    while (cursor.LT(end)) {
+      ObjectReference current = VM.objectModel.getObjectFromStartAddress(cursor);
+      if (!current.isNull()) {
+        if (isCellLive(current)) {
+          Log.write(current); Log.writeln(" is still live!");
+          live = true;
+        }
+      }
+      cursor = cursor.plus(cellExtent);
+    }
+    VM.assertions._assert(!live);
   }
 }
