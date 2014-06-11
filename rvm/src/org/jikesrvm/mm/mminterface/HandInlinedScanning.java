@@ -47,7 +47,7 @@ public class HandInlinedScanning {
   private static final int FIELD5_OFFSET = FIELD4_OFFSET + Constants.BYTES_IN_ADDRESS;
 
   /** Master switch */
-  public static final boolean ENABLED = true;
+  public static final boolean ENABLED = false;
 
   public static int referenceArray() {
     if (!ENABLED)
