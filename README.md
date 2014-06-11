@@ -26,7 +26,7 @@ who hold patents on Sapphire's design.
 
 ### Building
 
-Standard Jikes RVM dependencies apply for building with *ant* (see [here](http://docs.codehaus.org/display/RVM/Building+the+RVM)]).
+Standard Jikes RVM dependencies apply for building with *ant* (see [here](http://docs.codehaus.org/display/RVM/Building+the+RVM)).
 
 To build optimised (adjust host.name appropriately):
 ```
@@ -52,12 +52,12 @@ Select the method used for copying concurrent with the mutator, e.g.
 -X:gc:concurrentCopyMethod=always-htm2
 ```
 
+value | description
 --- | ---
 cas / cas2 | default per-word synchronised methods
 unsafe / unsafe2 | unsynchronised methods
 stm / mstm / stmseq / stmseq2 / stmseq2p / stmseq2n | software transactional
 htm / htm2 / mhtm | hardware transactional
---- | ---
 
 All of these options can be prefixed with "always-" to force the method to be used for all collections.  Normally stop-the-world collection will default to *unsafe2*.  Methods postfixed with *2* use a more efficient copying order than the same method without the postfix.
 
@@ -75,13 +75,13 @@ Select the method used to trigger concurrent collection, i.e. when collection wi
 -X:gc:concurrentTriggerMethod=allocation
 ```
 
+value | description
 --- | ---
 allocation | pages allocated since last collection start
 OOGCAllocation | pages allocated since last collection end
 percentage | percentage of the heap allocated 
 period | microseconds since last collection start
 time | microseconds since last collection end
---- | ---
 
 #### ConcurrentTrigger
 
