@@ -137,6 +137,18 @@ public abstract class TraceLocal extends TransitiveClosure implements Constants 
     }
   }
 
+  @Inline
+  public final void atomicProcessRootEdge(Address slot, boolean untraced) {
+    ObjectReference object;
+    if (untraced) object = slot.prepareObjectReference();
+    else     object = VM.activePlan.global().prepareObjectReference(slot);
+    ObjectReference newObject = traceObject(object, true);
+    if (overwriteReferenceDuringTrace()) {
+      if (untraced) slot.attempt(object, newObject);
+      else     VM.activePlan.global().attemptObjectReference(slot, object, newObject);
+    }
+  }
+
   /**
    * Trace a reference during GC.  This involves determining which
    * collection policy applies and calling the appropriate

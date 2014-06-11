@@ -306,6 +306,19 @@ public abstract class MutatorContext implements Constants {
    * involve adding the referent to the marking queue.
    *
    * @param referent The referent being read.
+   * @param isSoft True if the reference is a SoftReference, false if a WeakReference
+   * @return The new referent.
+   */
+  @Inline
+  public ObjectReference javaLangReferenceReadBarrier(ObjectReference referent, boolean isSoft) {
+    return javaLangReferenceReadBarrier(referent);
+  }
+
+  /**
+   * Read a reference type. In a concurrent collector this may
+   * involve adding the referent to the marking queue.
+   *
+   * @param referent The referent being read.
    * @return The new referent.
    */
   @Inline

@@ -37,9 +37,9 @@ public class Barriers implements org.mmtk.utility.Constants {
    * @param obj The non-null referent about to be released to the mutator.
    * @return The object to release to the mutator.
    */
-  public static Object javaLangReferenceReadBarrier(Object obj) {
+  public static Object javaLangReferenceReadBarrier(Object obj, boolean isSoft) {
     if (NEEDS_JAVA_LANG_REFERENCE_GC_READ_BARRIER) {
-      ObjectReference result = Selected.Mutator.get().javaLangReferenceReadBarrier(ObjectReference.fromObject(obj));
+      ObjectReference result = Selected.Mutator.get().javaLangReferenceReadBarrier(ObjectReference.fromObject(obj), isSoft);
       return result.toObject();
     } else if (VM.VerifyAssertions)
       VM._assert(VM.NOT_REACHED);
