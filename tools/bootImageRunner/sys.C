@@ -875,6 +875,54 @@ sysNanoSleep(long long howLongNanos)
 }
 
 
+
+extern "C" int
+sysGetRUsage(int who, int *result)
+{
+    struct rusage usage;
+    int n, ret;
+    
+    switch (who) {
+        case 0: who = RUSAGE_SELF; break;
+        #ifdef RUSAGE_THREAD
+        case 1: who = RUSAGE_THREAD; break;
+        #endif
+        case -1: who = RUSAGE_CHILDREN; break;
+        default:
+            who = RUSAGE_SELF;
+            break;
+    }
+
+    ret = getrusage(who, &usage);
+
+    n = 0;
+    result[n++] = (int) usage.ru_utime.tv_sec;    /*  0: user time used */
+    result[n++] = (int) usage.ru_utime.tv_usec;
+    result[n++] = (int) usage.ru_stime.tv_sec;    /*  2: system time used */
+    result[n++] = (int) usage.ru_stime.tv_usec;           
+    result[n++] = (int) usage.ru_maxrss;          /*  4: max resident set size */
+    result[n++] = (int) usage.ru_ixrss;           /*  5: integral shared text memory size */
+    result[n++] = (int) usage.ru_idrss;           /*  6: integral unshared data size */
+    result[n++] = (int) usage.ru_isrss;           /*  7: integral unshared stack size */
+    result[n++] = (int) usage.ru_minflt;          /*  8: page reclaims */
+    result[n++] = (int) usage.ru_majflt;          /*  9: page faults */
+    result[n++] = (int) usage.ru_nswap;           /* 10: swaps */
+    result[n++] = (int) usage.ru_inblock;         /* 11: block input operations */
+    result[n++] = (int) usage.ru_oublock;         /* 12: block output operations */
+    result[n++] = (int) usage.ru_msgsnd;          /* 13: messages sent */
+    result[n++] = (int) usage.ru_msgrcv;          /* 14: messages received */
+    result[n++] = (int) usage.ru_nsignals;        /* 15: signals received */
+    result[n++] = (int) usage.ru_nvcsw;           /* 16: voluntary context switches */
+    result[n++] = (int) usage.ru_nivcsw;          /* 17: involuntary context switches */
+    /*
+    for (n = 0; n <= 17; ++n) {
+        fprintf (stderr, "result[%02d] = %ld\n", n, (int) result[n]);
+    }
+    */
+
+    return ret;
+}
+
 //-----------------------//
 // Processor operations. //
 //-----------------------//

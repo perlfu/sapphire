@@ -326,6 +326,15 @@ public abstract class SysCall {
 
   @SysCallTemplate
   public abstract void sysNanoSleep(long howLongNanos);
+  
+  public static final int RUSAGE_SELF = 0;
+  public static final int RUSAGE_THREAD = 1;
+  public static final int RUSAGE_CHILDREN = -1;
+  public static final int RUSAGE_STRUCT_SIZE = 18; /* words */
+  public static final int RU_NVCSW = 16; /* voluntary context switches */
+  public static final int RU_NIVCSW = 17; /* involuntary context switches */
+  @SysCallTemplate
+  public abstract int sysGetRUsage(int who, int[] buffer);
 
   // shared libraries
   @SysCallTemplate

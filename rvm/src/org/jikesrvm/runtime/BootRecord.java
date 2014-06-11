@@ -303,6 +303,9 @@ public class BootRecord {
   Address sysCurrentTimeMillisIP;
   Address sysNanoTimeIP;
   Address sysNanoSleepIP;
+  
+  // resource usage
+  Address sysGetRUsageIP;
 
   // shared libraries
   Address sysDlopenIP;
