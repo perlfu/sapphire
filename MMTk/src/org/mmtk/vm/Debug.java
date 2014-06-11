@@ -60,6 +60,13 @@ public abstract class Debug {
   public void globalPhase(short phaseId, boolean before) { }
 
   /**
+   * A special global GC collection phase
+   * @param phaseId The phase ID
+   * @param before true at the start of the phase, false at the end
+   */
+  public void specialGlobalPhase(short phaseId, boolean before) { }
+
+  /**
    * A per-collector GC collection phase
    * @param phaseId The phase ID
    * @param ordinal The collector ID (within this collection)
@@ -75,6 +82,21 @@ public abstract class Debug {
    */
   public void mutatorPhase(short phaseId, int ordinal, boolean before) { }
 
+  /**
+   * A global request for on-the-fly per-mutator GC collection phase
+   * @param phaseId The phase ID
+   * @param before true at the start of the phase, false at the end
+   */
+  public void requestedOnTheFlyMutatorPhase(short phaseId, boolean before) { }
+  
+  /**
+   * An on-the-fly per-mutator GC collection phase
+   * @param phaseId The phase ID
+   * @param ordinal The mutator ID
+   * @param before true at the start of the phase, false at the end
+   */
+  public void onTheFlyMutatorPhase(short phaseId, int ordinal, boolean before) { }
+  
   /**
    * Trace an object during GC
    *

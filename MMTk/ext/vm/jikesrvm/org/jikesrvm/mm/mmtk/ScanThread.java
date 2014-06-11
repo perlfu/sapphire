@@ -93,7 +93,7 @@ import org.jikesrvm.ArchitectureSpecific.Registers;
    * MULTIPLE GC THREADS WILL PRODUCE SCRAMBLED OUTPUT so only
    * use these when running with PROCESSORS=1
    */
-  private static final int DEFAULT_VERBOSITY = 0 /*0*/;
+  private static final int DEFAULT_VERBOSITY = 0 /* 0 */;
   private static final int FAILURE_VERBOSITY = 4;
 
   /***********************************************************************
