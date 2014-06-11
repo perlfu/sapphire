@@ -12,7 +12,9 @@
  */
 package org.mmtk.utility;
 
+import org.mmtk.utility.alloc.LinearScan;
 import org.mmtk.utility.gcspy.drivers.TreadmillDriver;
+import org.mmtk.vm.VM;
 
 import org.vmmagic.unboxed.*;
 import org.vmmagic.pragma.*;
@@ -75,6 +77,14 @@ public final class Treadmill implements Constants {
       allocNursery.add(node);
     else
       toSpace.add(node);
+  }
+
+  @Inline
+  public void addToTreadmillFromSpace(Address node, boolean nursery) {
+    if (nursery)
+      collectNursery.add(node);
+    else
+      fromSpace.add(node);
   }
 
   /**
@@ -142,6 +152,35 @@ public final class Treadmill implements Constants {
       fromSpace = toSpace;
       toSpace = tmp;
     }
+  }
+  
+  /**
+   * Perform a linear scan through the objects of a doubly linked list.
+   *
+   * @param scanner The scan object to delegate scanning to.
+   * @param list The list to scan through.
+   */
+  private void linearScan(LinearScan scanner, DoublyLinkedList list) {
+    Address cur = list.getHead();
+    while (!cur.isZero()) {
+      ObjectReference object = VM.objectModel.getObjectFromStartAddress(nodeToPayload(cur));
+      scanner.scan(object);
+      cur = list.getNext(cur);
+    }
+  }
+  
+  /**
+   * Perform a linear scan through the objects in this treadmill.
+   * 
+   * Only toSpace and nursery objects are exposed through this method, 
+   * i.e. if prepare has been called then make sure that all objects 
+   * live objects have been traced before using this method.
+   *
+   * @param scanner The scan object to delegate scanning to.
+   */
+  public void linearScan(LinearScan scanner) {
+    linearScan(scanner, allocNursery);
+    linearScan(scanner, toSpace);
   }
 
   /****************************************************************************

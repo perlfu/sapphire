@@ -13,10 +13,15 @@
 package org.mmtk.policy;
 
 import org.mmtk.utility.alloc.LargeObjectAllocator;
+import org.mmtk.utility.alloc.LinearScan;
 import org.mmtk.utility.gcspy.drivers.TreadmillDriver;
 import org.mmtk.utility.Constants;
+import org.mmtk.utility.Treadmill;
+import org.mmtk.vm.VM;
 
 import org.vmmagic.pragma.*;
+import org.vmmagic.unboxed.Address;
+import org.vmmagic.unboxed.ObjectReference;
 
 /**
  * Each instance of this class is intended to provide fast,
@@ -42,6 +47,7 @@ public final class LargeObjectLocal extends LargeObjectAllocator implements Cons
    *
    * Instance variables
    */
+  private byte allocColor;
 
   /****************************************************************************
    *
@@ -62,12 +68,29 @@ public final class LargeObjectLocal extends LargeObjectAllocator implements Cons
    *
    * Allocation
    */
+  /**
+   * Perform any required initialization of the GC portion of the header.
+   *
+   * @param object the object ref to the storage to be initialized
+   */
+  @Inline
+  public void initializeHeader(ObjectReference object) {
+    ((LargeObjectSpace) space).initializeHeader(object, allocColor, true);
+  }
 
   /****************************************************************************
    *
    * Collection
    */
+  
+  public void initThreadForOTFCollection() {
+    prepareOTFCollection();
+  }
 
+  public void prepareOTFCollection() {
+    allocColor = (byte) ((LargeObjectSpace) space).getMarkState().toInt();
+  }
+  
   /**
    * Prepare for a collection.  Clear the treadmill to-space head and
    * prepare the collector.  If paranoid, perform a sanity check.
@@ -79,6 +102,22 @@ public final class LargeObjectLocal extends LargeObjectAllocator implements Cons
    * Finish up after a collection.
    */
   public void release(boolean fullHeap) {
+  }
+  
+  /****************************************************************************
+   * 
+   * Access methods
+   */
+  
+  /**
+   * Perform a linear scan through the objects in this large object space.
+   *
+   * @param scanner The scan object to delegate scanning to.
+   */
+  @Inline
+  public void linearScan(LinearScan scanner) {
+    Treadmill treadmill = ((LargeObjectSpace)space).getTreadmill();
+    treadmill.linearScan(scanner);
   }
 
   /****************************************************************************

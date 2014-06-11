@@ -18,6 +18,7 @@ import org.mmtk.utility.heap.VMRequest;
 import org.mmtk.utility.HeaderByte;
 import org.mmtk.utility.Treadmill;
 
+import org.mmtk.vm.Lock;
 import org.mmtk.vm.VM;
 
 import org.vmmagic.pragma.*;
@@ -55,6 +56,7 @@ public final class LargeObjectSpace extends BaseLargeObjectSpace {
   private byte markState;
   private boolean inNurseryGC;
   private final Treadmill treadmill;
+  private final Lock lock = VM.newLock("LOS");
 
   /****************************************************************************
    *
@@ -88,6 +90,10 @@ public final class LargeObjectSpace extends BaseLargeObjectSpace {
     markState = 0;
   }
 
+  /** @return the current mark state */
+  @Inline
+  public Word getMarkState() { return Word.fromIntZeroExtend(markState); }
+  
   /****************************************************************************
    *
    * Collection
@@ -99,6 +105,7 @@ public final class LargeObjectSpace extends BaseLargeObjectSpace {
    * collections.
    */
   public void prepare(boolean fullHeap) {
+    lock.acquire();
     if (fullHeap) {
       if (VM.VERIFY_ASSERTIONS) {
         VM.assertions._assert(treadmill.fromSpaceEmpty());
@@ -107,6 +114,7 @@ public final class LargeObjectSpace extends BaseLargeObjectSpace {
     }
     treadmill.flip(fullHeap);
     inNurseryGC = !fullHeap;
+    lock.release();
   }
 
   /**
@@ -163,9 +171,14 @@ public final class LargeObjectSpace extends BaseLargeObjectSpace {
   public ObjectReference traceObject(TransitiveClosure trace, ObjectReference object) {
     boolean nurseryObject = isInNursery(object);
     if (!inNurseryGC || nurseryObject) {
-      if (testAndMark(object, markState)) {
-        internalMarkObject(object, nurseryObject);
-        trace.processNode(object);
+      if (!testMarkBit(object, markState)) {
+        lock.acquire();
+        if (testAndMark(object, markState)) {
+          internalMarkObject(object, nurseryObject);
+          lock.release();
+          trace.processNode(object);
+        } else
+          lock.release();
       }
     }
     return object;
@@ -189,7 +202,7 @@ public final class LargeObjectSpace extends BaseLargeObjectSpace {
    * @param object The object which has been marked.
    */
   @Inline
-  private void internalMarkObject(ObjectReference object, boolean nurseryObject) {
+  public void internalMarkObject(ObjectReference object, boolean nurseryObject) {
 
     Address cell = VM.objectModel.objectStartRef(object);
     Address node = Treadmill.midPayloadToNode(cell);
@@ -210,13 +223,23 @@ public final class LargeObjectSpace extends BaseLargeObjectSpace {
    */
   @Inline
   public void initializeHeader(ObjectReference object, boolean alloc) {
+    initializeHeader(object, markState, alloc);
+  }
+
+  @Inline
+  public void initializeHeader(ObjectReference object, byte markState, boolean alloc) {
+    lock.acquire();
     byte oldValue = VM.objectModel.readAvailableByte(object);
-    byte newValue = (byte) ((oldValue & ~LOS_BIT_MASK) | markState);
+    byte newValue = (byte) ((oldValue & ~LOS_BIT_MASK) | markState); // when changed?
     if (alloc) newValue |= NURSERY_BIT;
     if (HeaderByte.NEEDS_UNLOGGED_BIT) newValue |= HeaderByte.UNLOGGED_BIT;
     VM.objectModel.writeAvailableByte(object, newValue);
     Address cell = VM.objectModel.objectStartRef(object);
-    treadmill.addToTreadmill(Treadmill.midPayloadToNode(cell), alloc);
+    if (markState == this.markState)
+      treadmill.addToTreadmill(Treadmill.midPayloadToNode(cell), alloc);
+    else
+      treadmill.addToTreadmillFromSpace(Treadmill.midPayloadToNode(cell), alloc);
+    lock.release();
   }
 
   /**

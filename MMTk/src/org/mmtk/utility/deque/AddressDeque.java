@@ -121,4 +121,8 @@ import org.vmmagic.pragma.*;
     return checkDequeue(1);
   }
 
+  public void assertEmpty() {
+    queue.assertExhausted();
+    if (VM.VERIFY_ASSERTIONS) VM.assertions._assert(bufferOffset(head).isZero());
+  }
 }
