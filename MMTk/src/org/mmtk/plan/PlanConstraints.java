@@ -182,12 +182,24 @@ import org.vmmagic.pragma.*;
   /** @return {@code true} if this plan contains GCTrace. */
   public boolean generateGCTrace() { return false; }
 
-  /** @return The specialized scan methods required */
+  /** @return The specialized scan methods required. */
   public int numSpecializedScans() { return 0; }
 
-  /** @return {@code true} if this plan requires concurrent worker threads */
+  /** @return {@code true} if this plan requires concurrent worker threads. */
   public boolean needsConcurrentWorkers() { return false; }
 
-  /** @return {@code true} if this Plan requires a header bit for object logging */
+  /** @return {@code true} if this Plan requires a header bit for object logging. */
   public boolean needsLogBitInHeader() { return false; }
+
+  /** @return {@code true} if mutators are running during any phase of GC. */
+  public boolean onTheFlyCollector() { return false; }
+  
+  /** @return {@code true} if replicating GC. */
+  public boolean replicatingGC() { return false; }
+  
+  /** @return {@code true} if this Plan requires write barriers on the reference table. */
+  public boolean needsReferenceTableWriteBarrier() { return false; }
+  
+  /** @return {@code true} if biased locking is supported. */
+  public boolean supportsBiasedLocking() { return true; }
 }
