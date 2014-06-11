@@ -1093,7 +1093,22 @@ public final class MemoryManager implements HeapLayoutConstants, Constants {
   public static boolean gcInProgress() {
     return Plan.gcInProgress();
   }
-
+  
+  /** @return True if current GC was user triggered */
+  public static boolean gcIsUserTriggered() {
+    return Plan.isUserTriggeredCollection();
+  }
+  
+  /** @return True if current GC is internally triggered */
+  public static boolean gcIsInternallyTriggered() {
+    return Plan.isInternalTriggeredCollection();
+  }
+  
+  /** @return True if current GC is on-the-fly */
+  public static boolean gcIsOnTheFly() {
+    return Plan.controlCollectorContext.isOnTheFlyCollection();
+  }
+  
   /**
    * Start the GCspy server
    */

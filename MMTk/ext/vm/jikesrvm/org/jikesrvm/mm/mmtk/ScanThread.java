@@ -135,7 +135,7 @@ import org.jikesrvm.ArchitectureSpecific.Registers;
   public static void scanThread(RVMThread thread, TraceLocal trace,
                                 boolean processCodeLocations, boolean newRootsSufficient) {
     if (DEFAULT_VERBOSITY>=1) {
-      VM.sysWriteln("scanning ",thread.getThreadSlot());
+      VM.sysWriteln("scanning ", thread.getThreadSlot(), " with pthreadId ", thread.pthread_id);
     }
 
     /* get the gprs associated with this thread */
@@ -178,6 +178,9 @@ import org.jikesrvm.ArchitectureSpecific.Registers;
                                  Address gprs, Address topFrame, boolean newRootsSufficent) {
     // figure out if the thread should be scanned at all; if not, exit
     if (thread.getExecStatus()==RVMThread.NEW || thread.getIsAboutToTerminate()) {
+      if (Options.verbose.getValue() >= 8)
+        VM.sysWriteln("scanning thread in either new or terminated state therefore ignoring #", thread.getThreadSlot(),
+            " with pthreadID ", thread.pthread_id);
       return;
     }
     /* establish ip and fp for the stack to be scanned */
@@ -262,7 +265,7 @@ import org.jikesrvm.ArchitectureSpecific.Registers;
    * performing the scan.
    */
   private void scanThreadInternal(Address gprs, int verbosity, Address sentinelFp) {
-    if (false) {
+    if (Options.verbose.getValue() >= 8) {
       VM.sysWriteln("Scanning thread ",thread.getThreadSlot()," from thread ",RVMThread.getCurrentThreadSlot());
     }
     if (verbosity >= 2) {
@@ -282,19 +285,22 @@ import org.jikesrvm.ArchitectureSpecific.Registers;
 
     /* scan each frame if a non-empty stack */
     if (fp.NE(ArchitectureSpecific.StackframeLayoutConstants.STACKFRAME_SENTINEL_FP)) {
+      if (Options.verbose.getValue() >= 8) VM.sysWriteln("There is something on the stack for thread #", thread.getThreadSlot());
       prevFp = Address.zero();
       reinstallReturnBarrier = Options.useReturnBarrier.getValue() || Options.useShortStackScans.getValue();
       /* At start of loop:
          fp -> frame for method invocation being processed
          ip -> instruction pointer in the method (normally a call site) */
       while (Magic.getCallerFramePointer(fp).NE(sentinelFp)) {
-        if (false) {
+        if (DEFAULT_VERBOSITY > 1) {
           VM.sysWriteln("Thread ",RVMThread.getCurrentThreadSlot()," at fp = ",fp);
         }
         prevFp = scanFrame(verbosity);
         ip = Magic.getReturnAddress(fp, thread);
         fp = Magic.getCallerFramePointer(fp);
       }
+    } else {
+      if (Options.verbose.getValue() >= 8) VM.sysWriteln("No FP for stack of thread #", thread.getThreadSlot());
     }
 
     /* If a thread started via createVM or attachVM, base may need scaning */

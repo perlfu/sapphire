@@ -76,6 +76,41 @@ public final class ScanStatics implements Constants {
     }
   }
 
+  @Inline
+  @Uninterruptible
+  public static void onTheFlyScanStaticsSnapshot() {
+    numberOfReferencesToBeScanned = Statics.getNumberOfReferenceSlots();
+  }
+
+  @Inline
+  @Uninterruptible
+  public static void onTheFlyScanStatics(TraceLocal trace) {
+    // The address of the statics table
+    // equivalent to Statics.getSlots()
+    final Address slots = Magic.getJTOC();
+    // This thread as a collector
+    final CollectorContext cc = RVMThread.getCurrentThread().getCollectorContext();
+    // The number of collector threads
+    final int numberOfCollectors = cc.parallelWorkerCount();
+    // The number of static references
+    final int numberOfReferences = numberOfReferencesToBeScanned;
+    // The size to give each thread
+    final int chunkSize = (numberOfReferences / numberOfCollectors) & chunkSizeMask;
+    // The number of this collector thread (1...n)
+    final int threadOrdinal = cc.parallelWorkerOrdinal();
+
+    // Start and end of statics region to be processed
+    final int start = (threadOrdinal == 0) ? refSlotSize : threadOrdinal * chunkSize;
+    final int end = (threadOrdinal+1 == numberOfCollectors) ? numberOfReferences : (threadOrdinal+1) * chunkSize;
+
+    // Process region
+    for (int slot=start; slot < end; slot+=refSlotSize) {
+      Offset slotOffset = Offset.fromIntSignExtend(slot << LOG_BYTES_IN_INT);
+      if (ScanThread.VALIDATE_REFS) checkReference(slots.plus(slotOffset), slot);
+      trace.atomicProcessRootEdge(slots.plus(slotOffset), true);
+    }
+  }
+
   /**
    * Check that a reference encountered during scanning is valid.  If
    * the reference is invalid, dump stack and die.
