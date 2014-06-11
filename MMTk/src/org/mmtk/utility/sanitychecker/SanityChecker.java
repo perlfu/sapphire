@@ -42,7 +42,7 @@ public final class SanityChecker implements Constants {
   public static final int ALIVE = -1;
   public static final int UNSURE = 0;
 
-  public static final int LOG_SANITY_DATA_SIZE = 24;
+  public static final int LOG_SANITY_DATA_SIZE = 23;
 
   /* Tracing */
   public Trace rootTrace;
