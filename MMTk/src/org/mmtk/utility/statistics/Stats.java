@@ -47,6 +47,7 @@ public class Stats {
   private static Counter[] counter;
   static int phase = 0;
   private static int gcCount = 0;
+  private static int otfGCCount = 0;
   static boolean gatheringStats = false;
   static boolean exceededPhaseLimit = false;
 
@@ -88,6 +89,8 @@ public class Stats {
   public static void startGC() {
     gcCount++;
     if (!gatheringStats) return;
+    if (Plan.controlCollectorContext.isOnTheFlyCollection())
+      otfGCCount++;
     if (phase < MAX_PHASES - 1) {
       for (int c = 0; c < counters; c++) {
         counter[c].phaseChange(phase);
@@ -193,6 +196,7 @@ public class Stats {
     Log.writeln("============================ MMTk Statistics Totals ============================");
     printColumnNames();
     Log.write(phase/2); Log.write("\t");
+    Log.write(otfGCCount); Log.write("\t");
     for (int c = 0; c < counters; c++) {
       if (counter[c].mergePhases()) {
         counter[c].printTotal(); Log.write("\t");
@@ -234,6 +238,7 @@ public class Stats {
   @Interruptible
   private static void printColumnNames() {
     Log.write("GC\t");
+    Log.write("OTFGC\t");
     for (int c = 0; c < counters; c++) {
       if (counter[c].mergePhases()) {
         Log.write(counter[c].getName());

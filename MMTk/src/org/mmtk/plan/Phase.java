@@ -50,10 +50,14 @@ public abstract class Phase implements Constants {
   protected static final short SCHEDULE_GLOBAL = 1;
   /** Run the phase on collectors. */
   protected static final short SCHEDULE_COLLECTOR = 2;
-  /** Run the phase on mutators. */
-  protected static final short SCHEDULE_MUTATOR = 3;
+  /** Run the phase on mutators in a STW context. */
+  protected static final short SCHEDULE_STW_MUTATOR = 3;
   /** Run this phase concurrently with the mutators */
   protected static final short SCHEDULE_CONCURRENT = 4;
+  /** This is a special phase. */
+  protected static final short SCHEDULE_SPECIAL = 5;
+  /** This is a phase run on all mutators in a on-the-fly context. */
+  protected static final short SCHEDULE_ONTHEFLY_MUTATOR = 6;
   /** Don't run this phase. */
   protected static final short SCHEDULE_PLACEHOLDER = 100;
   /** This is a complex phase. */
@@ -100,10 +104,12 @@ public abstract class Phase implements Constants {
     switch (ordering) {
       case SCHEDULE_GLOBAL:      return "Global";
       case SCHEDULE_COLLECTOR:   return "Collector";
-      case SCHEDULE_MUTATOR:     return "Mutator";
+      case SCHEDULE_STW_MUTATOR: return "STW Mutator";
+      case SCHEDULE_ONTHEFLY_MUTATOR: return "OnTheFly Mutator";
       case SCHEDULE_CONCURRENT:  return "Concurrent";
       case SCHEDULE_PLACEHOLDER: return "Placeholder";
       case SCHEDULE_COMPLEX:     return "Complex";
+      case SCHEDULE_SPECIAL:     return "Special";
       default:                   return "UNKNOWN!";
     }
   }
@@ -212,6 +218,18 @@ public abstract class Phase implements Constants {
 
   /**
    * Take the passed phase and return an encoded phase to
+   * run that phase in a special global context;
+   *
+   * @param phaseId The phase to run globally
+   * @return The encoded phase value.
+   */
+  public static int scheduleSpecial(short phaseId) {
+    if (VM.VERIFY_ASSERTIONS) VM.assertions._assert(Phase.getPhase(phaseId) instanceof SimplePhase);
+    return (SCHEDULE_SPECIAL << 16) + phaseId;
+  }
+
+  /**
+   * Take the passed phase and return an encoded phase to
    * run that phase in a collector context;
    *
    * @param phaseId The phase to run on collectors
@@ -223,15 +241,25 @@ public abstract class Phase implements Constants {
   }
 
   /**
-   * Take the passed phase and return an encoded phase to
-   * run that phase in a mutator context;
+   * Take the passed phase and return an encoded phase to run that phase in a STW mutator context;
    *
    * @param phaseId The phase to run on mutators
    * @return The encoded phase value.
    */
   public static int scheduleMutator(short phaseId) {
     if (VM.VERIFY_ASSERTIONS) VM.assertions._assert(Phase.getPhase(phaseId) instanceof SimplePhase);
-    return (SCHEDULE_MUTATOR << 16) + phaseId;
+    return (SCHEDULE_STW_MUTATOR << 16) + phaseId;
+  }
+
+  /**
+   * Take the passed phase and return an encoded phase to run that phase in a on-the-fly mutator context;
+   *
+   * @param phaseId The phase to run on mutators
+   * @return The encoded phase value.
+   */
+  public static int scheduleOnTheFlyMutator(short phaseId) {
+    if (VM.VERIFY_ASSERTIONS) VM.assertions._assert(Phase.getPhase(phaseId) instanceof SimplePhase);
+    return (SCHEDULE_ONTHEFLY_MUTATOR << 16) + phaseId;
   }
 
   /**
@@ -376,6 +404,7 @@ public abstract class Phase implements Constants {
    *
    * @param scheduledPhase The phase to execute
    */
+  @Unpreemptible
   public static void beginNewPhaseStack(int scheduledPhase) {
     int order = ((ParallelCollector)VM.activePlan.collector()).rendezvous();
 
@@ -389,6 +418,7 @@ public abstract class Phase implements Constants {
    * Continue the execution of a phase stack. Used for incremental
    * and concurrent collection.
    */
+  @Unpreemptible
   public static void continuePhaseStack() {
     processPhaseStack(true);
   }
@@ -396,6 +426,7 @@ public abstract class Phase implements Constants {
   /**
    * Process the phase stack. This method is called by multiple threads.
    */
+  @Unpreemptible
   private static void processPhaseStack(boolean resume) {
     /* Global and Collector instances used in phases */
     Plan plan = VM.activePlan.global();
@@ -422,6 +453,11 @@ public abstract class Phase implements Constants {
     if (primary) {
       /* Only allow concurrent collection if we are not collecting due to resource exhaustion */
       allowConcurrentPhase = Plan.isInternalTriggeredCollection() && !Plan.isEmergencyCollection();
+      if (Options.verbose.getValue() >= 8) {
+        Log.write("Setting allowConcurrentPhase to "); Log.writeln(allowConcurrentPhase);
+        Log.write("Plan.isInternalTriggeredCollection() returned "); Log.writeln(Plan.isInternalTriggeredCollection());
+        Log.write("Plan.isEmergencyCollection() returned "); Log.writeln(Plan.isEmergencyCollection());
+      }
 
       /* First phase will be even, so we say we are odd here so that the next phase set is even*/
       setNextPhase(false, getNextPhase(), false);
@@ -467,6 +503,17 @@ public abstract class Phase implements Constants {
           break;
         }
 
+        /* SpecialGlobal phase */
+        case SCHEDULE_SPECIAL: {
+          if (logDetails) Log.writeln(" as Special Global...");
+          if (primary) {
+            if (VM.DEBUG) VM.debugging.specialGlobalPhase(phaseId,true);
+            plan.unpreemptibleCollectionPhase(phaseId);
+            if (VM.DEBUG) VM.debugging.specialGlobalPhase(phaseId,false);
+          }
+          break;
+        }
+
         /* Collector phase */
         case SCHEDULE_COLLECTOR: {
           if (logDetails) Log.writeln(" as Collector...");
@@ -477,17 +524,40 @@ public abstract class Phase implements Constants {
         }
 
         /* Mutator phase */
-        case SCHEDULE_MUTATOR: {
-          if (logDetails) Log.writeln(" as Mutator...");
+        case SCHEDULE_STW_MUTATOR: {
+          if (logDetails) Log.writeln(" as STW Mutator...");
           /* Iterate through all mutator contexts */
           MutatorContext mutator;
           while ((mutator = VM.activePlan.getNextMutator()) != null) {
             if (VM.DEBUG) VM.debugging.mutatorPhase(phaseId,mutator.getId(),true);
+            if (VM.VERIFY_ASSERTIONS) {
+              if (!VM.collection.isBlockedForGC(mutator)) {
+                Log.write("Argh expected mutators to be stopped and they weren't, phase is "); Log.writeln(Phase.getName(phaseId));
+                VM.assertions.fail("DEAD");
+              }
+            }
             mutator.collectionPhase(phaseId, primary);
             if (VM.DEBUG) VM.debugging.mutatorPhase(phaseId,mutator.getId(),false);
           }
           break;
         }
+
+        /* Mutator phase */
+      case SCHEDULE_ONTHEFLY_MUTATOR: {
+        if (logDetails) Log.writeln(" as On-The-Fly Mutator...");
+        /* Iterate through all mutator contexts */
+        if (VM.DEBUG) VM.debugging.requestedOnTheFlyMutatorPhase(phaseId, true);
+        if (primary) {
+          VM.activePlan.mutator().collectionPhase(phaseId, true);
+          VM.memory.fence();
+          VM.collection.requestMutatorOnTheFlyProcessPhase(phaseId);
+        }
+        collector.rendezvous();
+        if (!primary)
+          VM.activePlan.mutator().collectionPhase(phaseId, false);
+        if (VM.DEBUG) VM.debugging.requestedOnTheFlyMutatorPhase(phaseId, false);
+        break;
+      }
 
         /* Concurrent phase */
         case SCHEDULE_CONCURRENT: {
@@ -516,7 +586,8 @@ public abstract class Phase implements Constants {
       if (primary) {
         /* Set the next phase by processing the stack */
         int next = getNextPhase();
-        boolean needsResetRendezvous = (next > 0) && (schedule == SCHEDULE_MUTATOR && getSchedule(next) == SCHEDULE_MUTATOR);
+        boolean needsResetRendezvous = (next > 0)
+            && (schedule == SCHEDULE_STW_MUTATOR && getSchedule(next) == SCHEDULE_STW_MUTATOR);
         setNextPhase(isEvenPhase, next, needsResetRendezvous);
       }
 
@@ -524,7 +595,7 @@ public abstract class Phase implements Constants {
       collector.rendezvous();
 
       /* Mutator phase reset */
-      if (primary && schedule == SCHEDULE_MUTATOR) {
+      if (primary && schedule == SCHEDULE_STW_MUTATOR) {
         VM.activePlan.resetMutatorIterator();
       }
 
@@ -597,7 +668,9 @@ public abstract class Phase implements Constants {
 
         case SCHEDULE_GLOBAL:
         case SCHEDULE_COLLECTOR:
-        case SCHEDULE_MUTATOR: {
+        case SCHEDULE_STW_MUTATOR:
+        case SCHEDULE_ONTHEFLY_MUTATOR:
+        case SCHEDULE_SPECIAL: {
           /* Simple phases are just popped off the stack and executed */
           popScheduledPhase();
           return scheduledPhase;
@@ -770,11 +843,19 @@ public abstract class Phase implements Constants {
       Log.writeln(" complete >");
     }
     /* Concurrent phase is complete*/
+    if (Options.verbose.getValue() >= 8) {
+      Log.write("*** concurrentPhaseId was ");
+      Log.writeln(getName(concurrentPhaseId));
+    }
     concurrentPhaseId = 0;
     /* Remove it from the stack */
     popScheduledPhase();
     /* Pop the next phase off the stack */
     int nextScheduledPhase = getNextPhase();
+    if (Options.verbose.getValue() >= 8) {
+      Log.write("*** nextPhase is ");
+      Log.writeln(getName((short) nextScheduledPhase));
+    }
 
     if (nextScheduledPhase > 0) {
       short schedule = getSchedule(nextScheduledPhase);
@@ -787,6 +868,10 @@ public abstract class Phase implements Constants {
 
       /* Push phase back on and resume atomic collection */
       pushScheduledPhase(nextScheduledPhase);
+      if (Options.verbose.getValue() >= 8) {
+        Log.write("*** just pushed this phase back onto the stack ");
+        Log.writeln(getName((short) nextScheduledPhase));
+      }
       Plan.triggerInternalCollectionRequest();
     }
     return false;

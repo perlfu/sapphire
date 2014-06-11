@@ -596,6 +596,7 @@ public final class RVMThread extends ThreadContext implements Constants {
    * handshake.
    */
   public boolean flushRequested;
+  public boolean mutatorProcessPhase;
 
   /**
    * Is a soft handshake requested? Logically, this field is protected by the
@@ -658,6 +659,15 @@ public final class RVMThread extends ThreadContext implements Constants {
    */
   public Lock cachedFreeLock;
 
+  /**
+   * Place to save register state when we prepare the stack for GC.  This is used to ensure the mutator has not run since the last preparation.
+   * This field should be removed after debugging.
+   */
+  @Untraced
+  public final Registers contextRegistersLastPreparation;
+  @SuppressWarnings("unused")
+  private final Registers contextRegistersLastPreparationShadow;
+  
   /*
    * Wait/notify fields
    */
@@ -832,7 +842,7 @@ public final class RVMThread extends ThreadContext implements Constants {
   @NonMoving
   public static class GCBlockAdapter extends BlockAdapter {
     @Override
-    boolean isBlocked(RVMThread t) {
+    public boolean isBlocked(RVMThread t) {
       return t.isBlockedForGC;
     }
 
@@ -1440,6 +1450,8 @@ public final class RVMThread extends ThreadContext implements Constants {
       threads[0] = this;
       threadIdx = 0;
       numThreads = 1;
+      initMutator(threadSlot);
+      activeMutatorContext = true;
     } else {
       processAboutToTerminate();
       acctLock.lockNoHandshake();
@@ -1470,13 +1482,14 @@ public final class RVMThread extends ThreadContext implements Constants {
                      * make sure that nobody sees the thread in any of the
                      * tables until the thread slot is inited
                      */
-
+      if (name == null) name = "Thread-" + threadSlot;
       acctLock.lockNoHandshake();
       threadBySlot[threadSlot] = this;
 
       threadIdx = numThreads++;
       threads[threadIdx] = this;
-
+      initMutator(threadSlot);
+      activeMutatorContext = true;
       acctLock.unlock();
     }
     lockingId = threadSlot << ThinLockConstants.TL_THREAD_ID_SHIFT;
@@ -1530,6 +1543,7 @@ public final class RVMThread extends ThreadContext implements Constants {
     this.contextRegisters = this.contextRegistersShadow = new Registers();
     this.contextRegistersSave = this.contextRegistersSaveShadow = new Registers();
     this.exceptionRegisters = this.exceptionRegistersShadow = new Registers();
+    this.contextRegistersLastPreparation = this.contextRegistersLastPreparationShadow = new Registers();
 
     if (VM.runningVM) {
       feedlet = TraceEngine.engine.makeFeedlet(name, name);
@@ -1551,8 +1565,6 @@ public final class RVMThread extends ThreadContext implements Constants {
       if (trace)
         trace("RVMThread", "create");
 
-      initMutator(threadSlot);
-      this.activeMutatorContext = true;
       // Remember the boot thread
       this.execStatus = IN_JAVA;
       this.waiting = Waiting.RUNNABLE;
@@ -1563,8 +1575,8 @@ public final class RVMThread extends ThreadContext implements Constants {
 
       // set up wrapper Thread if one exists
       this.thread = thread;
+      this.name = name;
       // Set thread type
-
       this.execStatus = NEW;
       this.waiting = Waiting.RUNNABLE;
 
@@ -1586,11 +1598,9 @@ public final class RVMThread extends ThreadContext implements Constants {
       VM.enableGC();
 
       assignThreadSlot();
-      this.name = name == null ? "Thread-" + threadSlot : name;
-      initMutator(threadSlot);
-      activeMutatorContext = true;
       if (traceAcct) {
-        VM.sysWriteln("registered mutator for ", threadSlot);
+        VM.sysWrite("Thread #", RVMThread.getCurrentThreadSlot());
+        VM.sysWriteln(" registered mutator for ", threadSlot);
       }
 
       initializeJNIEnv();
@@ -1605,6 +1615,10 @@ public final class RVMThread extends ThreadContext implements Constants {
         // create wrapper Thread if doesn't exist
         this.thread = java.lang.JikesRVMSupport.createThread(this, name);
       }
+    }
+
+    if (traceAcct) {
+      VM.sysWriteln("Done creating RVMThread for ", threadSlot);
     }
   }
 
@@ -2637,10 +2651,13 @@ public final class RVMThread extends ThreadContext implements Constants {
   /**
    * Start execution of 'this' by creating and starting a native thread.
    */
-  @Interruptible
+  // @Interruptible
   public void start() {
     // N.B.: cannot hit a yieldpoint between setting execStatus and starting the
     // thread!!
+    if (traceAcct) {
+      VM.sysWriteln("called start for ", threadSlot);
+    }
     setExecStatus(IN_JAVA);
     acctLock.lockNoHandshake();
     numActiveThreads++;
@@ -2686,7 +2703,7 @@ public final class RVMThread extends ThreadContext implements Constants {
     }
 
     if (traceAcct)
-      VM.sysWriteln("doing accounting...");
+      VM.sysWriteln("doing accounting for Thread #", threadSlot);
     acctLock.lockNoHandshake();
 
     // if the thread terminated because of an exception, remove
@@ -2724,11 +2741,11 @@ public final class RVMThread extends ThreadContext implements Constants {
     acctLock.unlock();
 
     if (traceAcct)
-      VM.sysWriteln("done with accounting.");
+      VM.sysWriteln("done with accounting for Thread #", threadSlot);
 
     if (terminateSystem) {
       if (traceAcct)
-        VM.sysWriteln("terminating system.");
+        VM.sysWriteln("terminating system as Thread #", threadSlot);
       if (uncaughtExceptionCount > 0)
       /* Use System.exit so that any shutdown hooks are run. */{
         if (VM.TraceExceptionDelivery) {
@@ -2757,7 +2774,7 @@ public final class RVMThread extends ThreadContext implements Constants {
     }
 
     if (traceAcct)
-      VM.sysWriteln("making joinable...");
+      VM.sysWriteln("making joinable for Thread #", threadSlot);
 
     // this works.  we use synchronized because we cannot use the thread's
     // monitor().  see comment in join().  this is fine, because we're still
@@ -2770,7 +2787,7 @@ public final class RVMThread extends ThreadContext implements Constants {
       VM.sysWriteln("Thread #", threadSlot, " is joinable.");
 
     if (traceAcct)
-      VM.sysWriteln("making joinable...");
+      VM.sysWriteln("done making joinable for Thread #", threadSlot);
 
     // Switch to uninterruptible portion of termination
     terminateUnpreemptible();
@@ -2800,7 +2817,7 @@ public final class RVMThread extends ThreadContext implements Constants {
   private void terminateUnpreemptible() {
     // return cached free lock
     if (traceAcct)
-      VM.sysWriteln("returning cached lock...");
+      VM.sysWriteln("returning cached lock for Thread #", threadSlot);
 
     if (cachedFreeLock != null) {
       if (Lock.trace) {
@@ -2814,20 +2831,21 @@ public final class RVMThread extends ThreadContext implements Constants {
     }
 
     if (traceAcct)
-      VM.sysWriteln("adding to aboutToTerminate...");
+      VM.sysWriteln("adding to aboutToTerminate for Thread #", threadSlot);
 
     addAboutToTerminate();
     // NB we can no longer do anything that would lead to write barriers or
     // GC
 
     if (traceAcct) {
+      VM.sysWriteln("Printing some stats for Thread #", threadSlot);
       VM.sysWriteln("acquireCount for my monitor: ", monitor().acquireCount);
       VM.sysWriteln("timer ticks: ", timerTicks);
       VM.sysWriteln("yieldpoints taken: ", yieldpointsTaken);
       VM.sysWriteln("yieldpoints taken fully: ", yieldpointsTakenFully);
     }
     if (traceAcct)
-      VM.sysWriteln("finishing thread termination...");
+      VM.sysWriteln("finishing thread termination for Thread #", threadSlot);
 
     finishThreadTermination();
   }
@@ -3673,6 +3691,15 @@ public final class RVMThread extends ThreadContext implements Constants {
       MemoryManager.flushMutatorContext();
       flushRequested = false;
     }
+
+    if (mutatorProcessPhase && activeMutatorContext) {
+      if (Options.verbose.getValue() >= 8) VM.sysWriteln("Mutator thread on-the-fly processing collection phase");
+      if (MemoryManager.hasDebuggingEnabled()) MemoryManager.getDebugging().onTheFlyMutatorPhase(Collection.getOnTheFlyPhase(), getId(), true);
+      collectionPhase(Collection.getOnTheFlyPhase(), false);
+      if (MemoryManager.hasDebuggingEnabled()) MemoryManager.getDebugging().onTheFlyMutatorPhase(Collection.getOnTheFlyPhase(), getId(), false);
+      mutatorProcessPhase = false;
+    }
+
     // not really a "soft handshake" request but we handle it here anyway
     if (asyncDebugRequestedForThisThread) {
       asyncDebugRequestedForThisThread = false;
@@ -3701,6 +3728,7 @@ public final class RVMThread extends ThreadContext implements Constants {
       int numToHandshake = 0;
       for (int i = 0; i < RVMThread.numThreads; i++) {
         RVMThread t = RVMThread.threads[i];
+        if (Options.verbose.getValue() >= 8) VM.sysWriteln("blockAllMutators knows about thread ", t.getThreadSlot(), " with pthread_id ", t.pthread_id);
         if (!t.isCollectorThread() && !t.ignoreHandshakesAndGC()) {
           RVMThread.handshakeThreads[numToHandshake++] = t;
         }
@@ -3712,6 +3740,7 @@ public final class RVMThread extends ThreadContext implements Constants {
         RVMThread t = RVMThread.handshakeThreads[i];
         t.monitor().lockNoHandshake();
         if (t.blockedFor(RVMThread.gcBlockAdapter) || RVMThread.notRunning(t.asyncBlock(RVMThread.gcBlockAdapter))) {
+          if (Options.verbose.getValue() >= 8) VM.sysWriteln("blockAllMutators knows thread # does not need blocking ", t.getThreadSlot());
           // Already blocked or not running, remove.
           RVMThread.handshakeThreads[i--] = RVMThread.handshakeThreads[--numToHandshake];
           RVMThread.handshakeThreads[numToHandshake] = null; // help GC
@@ -3730,7 +3759,7 @@ public final class RVMThread extends ThreadContext implements Constants {
 
       // (4) Request a block for GC from all other threads.
       for (int i = 0; i < numToHandshake; i++) {
-        if (false) VM.sysWriteln("Waiting for ", RVMThread.handshakeThreads[i].getThreadSlot(), " to block.");
+        if (Options.verbose.getValue() >= 8) VM.sysWriteln("blockAllMutatorsForGC() Waiting for ", RVMThread.handshakeThreads[i].getThreadSlot(), " to block.");
         RVMThread t = RVMThread.handshakeThreads[i];
         RVMThread.observeExecStatusAtSTW(t.block(RVMThread.gcBlockAdapter));
         RVMThread.handshakeThreads[i] = null; // help GC
@@ -4405,6 +4434,10 @@ public final class RVMThread extends ThreadContext implements Constants {
    */
   public boolean ignoreHandshakesAndGC() {
     if (systemThread == null) return false;
+    return systemThread instanceof TimerThread;
+  }
+
+  public boolean isTimerThread() {
     return systemThread instanceof TimerThread;
   }
 

@@ -332,6 +332,11 @@ public abstract class Plan implements Constants {
   public abstract void collectionPhase(short phaseId);
 
   /**
+   * Perform a (global) unpreemptible collection phase.
+   */
+  public abstract void unpreemptibleCollectionPhase(short phase);
+
+  /**
    * Replace a phase.
    *
    * @param oldScheduledPhase The scheduled phase to insert after
@@ -619,6 +624,10 @@ public abstract class Plan implements Constants {
     controlCollectorContext.request();
   }
 
+  public static void triggerOnTheFlyCollectionRequest() {
+    controlCollectorContext.requestOnTheFlyCollection();
+  }
+
   /**
    * Reset collection state information.
    */
@@ -882,6 +891,14 @@ public abstract class Plan implements Constants {
       }
     }
 
+    if (onTheFlyCollectionRequired(space)) {
+      /* On-the-fly collection is always async collection. */
+      logPoll(space, "Triggering on-the-fly collection");
+      triggerOnTheFlyCollectionRequest();
+      logPoll(space, "triggered");
+      return false;
+    }
+
     return false;
   }
 
@@ -892,7 +909,9 @@ public abstract class Plan implements Constants {
    */
   protected void logPoll(Space space, String message) {
     if (Options.verbose.getValue() >= 5) {
-      Log.write("  [POLL] ");
+      Log.write("  [POLL] triggered by thread #");
+      Log.write(VM.activePlan.mutator().getId());
+      Log.write(" ");
       Log.write(space.getName());
       Log.write(": ");
       Log.writeln(message);
@@ -921,6 +940,16 @@ public abstract class Plan implements Constants {
    * @return <code>true</code> if a collection is requested by the plan.
    */
   protected boolean concurrentCollectionRequired() {
+    return false;
+  }
+
+  /**
+   * This method controls the triggering of an atomic phase of an on-the-fly
+   * collection. It is called periodically during allocation.
+   *
+   * @return True if a collection is requested by the plan.
+   */
+  protected boolean onTheFlyCollectionRequired(Space space) {
     return false;
   }
 

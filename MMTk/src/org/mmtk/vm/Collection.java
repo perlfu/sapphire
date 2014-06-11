@@ -104,6 +104,12 @@ import org.vmmagic.pragma.*;
    */
   public abstract void requestMutatorFlush();
 
+  public abstract void requestMutatorOnTheFlyProcessPhase(short phaseId);
+
+  public abstract boolean isBlockedForGC(MutatorContext m);
+
+  // public abstract void onTheFlyMutatorCollectionPhase(short phaseId, boolean primary);
+
   /**
    * Stop all mutator threads. This is current intended to be run by a single thread.
    * <p>
@@ -123,4 +129,43 @@ import org.vmmagic.pragma.*;
    * Fail with an out of memory error.
    */
   public abstract void outOfMemory();
+
+  @UninterruptibleNoWarn
+  public abstract void requestSoftHandshake(SoftHandshakeVisitor v);
+
+
+  @Uninterruptible
+  public static class SoftHandshakeVisitor {
+    /**
+     * Set whatever flags need to be set to signal that the given thread should
+     * perform some action when it acknowledges the soft handshake. If not
+     * interested in this thread, return false; otherwise return true. Returning
+     * true will cause a soft handshake request to be put through.
+     * <p>
+     * This method is called with the thread's monitor() held, but while the
+     * thread may still be running. This method is not called on mutators that
+     * have indicated that they are about to terminate.
+     */
+    public boolean checkAndSignal(MutatorContext t) {
+      return true;
+    }
+
+    /**
+     * Called when it is determined that the thread is stuck in native. While
+     * this method is being called, the thread cannot return to running Java
+     * code. As such, it is safe to perform actions "on the thread's behalf".
+     */
+    public void notifyStuckInNative(MutatorContext t) {
+    }
+
+    /**
+     * Check whether to include the specified thread in the soft handshake.
+     *
+     * @param t The thread to check for inclusion
+     * @return True if the thread should be included.
+     */
+    public boolean includeThread(MutatorContext t) {
+      return true;
+    }
+  }
 }

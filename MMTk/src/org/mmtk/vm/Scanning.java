@@ -54,6 +54,8 @@ import org.vmmagic.unboxed.*;
    */
   public abstract void notifyInitialThreadScanComplete(boolean partialScan);
 
+  public abstract void onTheFlyRootsSnapshot();
+  
   /**
    * Computes static roots.  This method establishes all such roots for
    * collection and places them in the root locations queue.  This method
@@ -70,6 +72,8 @@ import org.vmmagic.unboxed.*;
    * @param trace The trace to use for computing roots.
    */
   public abstract void computeStaticRoots(TraceLocal trace);
+  
+  public abstract void onTheFlyComputeStaticRoots(TraceLocal trace);
 
   /**
    * Computes global roots.  This method establishes all such roots for
@@ -87,6 +91,8 @@ import org.vmmagic.unboxed.*;
    * @param trace The trace to use for computing roots.
    */
   public abstract void computeGlobalRoots(TraceLocal trace);
+
+  public abstract void onTheFlyComputeGlobalRoots(TraceLocal trace);
 
   /**
    * Computes roots pointed to by threads, their associated registers
@@ -109,6 +115,24 @@ import org.vmmagic.unboxed.*;
   public abstract void computeThreadRoots(TraceLocal trace);
 
   /**
+   * Ensure that any mutator has not run before the last call of prepareMutator
+   */
+  public abstract void assertMutatorPrepared();
+
+  /**
+   * This method is on-the-fly version of computeThreadRoots.
+   * In contrast of computeThreadsRoots, this method pushes processes
+   * root references rather than simply queuing them.
+   * This method also prepares stacks before scanning.
+   * Thus, this method can have side effect.
+   *
+   * @param trace The trace to use for computing roots.
+   */
+  public void computeThreadRootsOnTheFly(TraceLocal trace) {
+    if (VM.VERIFY_ASSERTIONS) VM.assertions.fail("This VM does not support on-the-fly root scanning");
+  }
+
+  /*
    * Computes new roots pointed to by threads, their associated registers
    * and stacks.   This method is only required to return roots that are
    * new since the last stack scan (if possible, the implementation will
@@ -143,6 +167,8 @@ import org.vmmagic.unboxed.*;
    * @param trace The trace object to use to report root locations.
    */
   public abstract void computeBootImageRoots(TraceLocal trace);
+
+  public abstract void onTheFlyComputeBootImageRoots(TraceLocal trace);
 
   /**
    * @return true if the runtime supports a return barrier

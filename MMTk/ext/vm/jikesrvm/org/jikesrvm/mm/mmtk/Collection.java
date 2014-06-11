@@ -14,6 +14,7 @@ package org.jikesrvm.mm.mmtk;
 
 import org.mmtk.plan.CollectorContext;
 import org.mmtk.plan.MutatorContext;
+import org.mmtk.utility.options.Options;
 
 import org.jikesrvm.ArchitectureSpecific;
 import org.jikesrvm.VM;
@@ -24,6 +25,7 @@ import org.jikesrvm.runtime.SysCall;
 import org.jikesrvm.scheduler.RVMThread;
 import org.jikesrvm.scheduler.FinalizerThread;
 
+import org.vmmagic.pragma.Inline;
 import org.vmmagic.pragma.Interruptible;
 import org.vmmagic.pragma.Uninterruptible;
 import org.vmmagic.pragma.UninterruptibleNoWarn;
@@ -38,7 +40,13 @@ public class Collection extends org.mmtk.vm.Collection implements org.mmtk.utili
    *
    * Class variables
    */
+  protected static short onTheFlyPhase = 0;
 
+  @Inline
+  public static short getOnTheFlyPhase() {
+    return onTheFlyPhase;
+  }
+  
   /**
    * {@inheritDoc}
    */
@@ -63,10 +71,35 @@ public class Collection extends org.mmtk.vm.Collection implements org.mmtk.utili
   @Override
   @Unpreemptible
   public void blockForGC() {
-    RVMThread t=RVMThread.getCurrentThread();
+    // poll has advised that a GC is required, block the current thread
+    // a concurrent GC may resume this thread later before the GC is actually complete
+    RVMThread t = RVMThread.getCurrentThread();
     t.assertAcceptableStates(RVMThread.IN_JAVA, RVMThread.IN_JAVA_TO_BLOCK);
     RVMThread.observeExecStatusAtSTW(t.getExecStatus());
+    if (Options.verbose.getValue() >= 8) VM.sysWriteln("Thread # about to block for GC ", t.threadSlot);
     RVMThread.getCurrentThread().block(RVMThread.gcBlockAdapter);
+    if (Options.verbose.getValue() >= 8) VM.sysWriteln("Thread # back from blocking for GC ", t.threadSlot);
+  }
+
+  public boolean isBlockedForGC(MutatorContext m) {
+    RVMThread t = ((Selected.Mutator) m).getThread();
+    if (RVMThread.gcBlockAdapter.isBlocked(t)) {
+      if (Options.verbose.getValue() >= 8) VM.sysWriteln("STW Mutator phase iterating over mutator thread ", t.threadSlot);
+      return true;
+    }
+    if (t.isTimerThread()) {
+      if (Options.verbose.getValue() >= 8) VM.sysWriteln("STW Mutator phase iterating over timer thread ", t.threadSlot);
+      return true;
+    } else if (t.isCollectorThread()) {
+      if (Options.verbose.getValue() >= 8) VM.sysWriteln("STW Mutator phase iterating over collector thread ", t.threadSlot);
+      return true;
+    } else if (RVMThread.notRunning(t.getExecStatus())) {
+      if (Options.verbose.getValue() >= 8) VM.sysWriteln("STW Mutator phase iterating over NEW thread");
+      return true;
+    } else {
+      if (Options.verbose.getValue() >= 8) VM.sysWriteln("STW Mutator phase found a thread of unknown type or in wrong state ", t.threadSlot);
+    }
+    return false;
   }
 
   /***********************************************************************
@@ -101,8 +134,8 @@ public class Collection extends org.mmtk.vm.Collection implements org.mmtk.utili
     if (VM.VerifyAssertions) VM._assert(execStatus != RVMThread.IN_JNI);
     if (VM.VerifyAssertions) VM._assert(execStatus != RVMThread.IN_NATIVE);
     if (execStatus == RVMThread.BLOCKED_IN_JNI) {
-      if (false) {
-        VM.sysWriteln("for thread #",t.getThreadSlot()," setting up JNI stack scan");
+      if (Options.verbose.getValue() >= 8) {
+        VM.sysWriteln("prepareMutator for thread #", t.getThreadSlot(), " setting up JNI stack scan");
         VM.sysWriteln("thread #",t.getThreadSlot()," has top java fp = ",t.getJNIEnv().topJavaFP());
       }
 
@@ -113,6 +146,7 @@ public class Collection extends org.mmtk.vm.Collection implements org.mmtk.utili
        which is where the stack scan starts. */
       t.contextRegisters.setInnermost(Address.zero(), t.getJNIEnv().topJavaFP());
     }
+    t.contextRegistersLastPreparation.copyFrom(t.contextRegisters);
     t.monitor().unlock();
   }
 
@@ -143,6 +177,80 @@ public class Collection extends org.mmtk.vm.Collection implements org.mmtk.utili
         t.flushRequested = false;
       }
     };
+
+  /**
+   * Wait for running mutator threads to go past GC safe point
+   * Nested handshake is not allowed
+   */
+  @UninterruptibleNoWarn
+  public void requestSoftHandshake(org.mmtk.vm.Collection.SoftHandshakeVisitor v) {
+    softHandshakeVisitorAdapter.set(v);
+    RVMThread.softHandshake(softHandshakeVisitorAdapter);
+    softHandshakeVisitorAdapter.clear();
+  }
+
+  private static class SoftHandshakeVisitorAdapter extends RVMThread.SoftHandshakeVisitor {
+    private org.mmtk.vm.Collection.SoftHandshakeVisitor v;
+
+    @Uninterruptible
+    public void set(org.mmtk.vm.Collection.SoftHandshakeVisitor v) {
+      if (VM.VerifyAssertions) VM._assert(this.v == null);
+      this.v = v;
+    }
+
+    @Uninterruptible
+    public void clear() {
+      if (VM.VerifyAssertions) this.v = null;
+    }
+
+    @Uninterruptible
+    public boolean checkAndSignal(RVMThread t) {
+      return v.checkAndSignal(t);
+    }
+
+    @Uninterruptible
+    public void notifyStuckInNative(RVMThread t) {
+      v.notifyStuckInNative(t);
+    }
+
+    @Uninterruptible
+    public boolean includeThread(RVMThread t) {
+      if (t.isCollectorThread()) return false;
+      return v.includeThread(t);
+    }
+  }
+
+  private static SoftHandshakeVisitorAdapter softHandshakeVisitorAdapter = new SoftHandshakeVisitorAdapter();
+
+  @UninterruptibleNoWarn
+  public void requestMutatorOnTheFlyProcessPhase(short phaseId) {
+    if (VM.VerifyAssertions)
+      VM._assert(RVMThread.getCurrentThread().isCollectorThread(), "Designed to be called by a collector thread");
+    onTheFlyPhase = phaseId;
+    RVMThread.softHandshake(mutatorOnTheFlyProcessVisitor);
+    onTheFlyPhase = 0;
+  }
+
+  private static RVMThread.SoftHandshakeVisitor mutatorOnTheFlyProcessVisitor = new RVMThread.SoftHandshakeVisitor() {
+    @UninterruptibleNoWarn
+    public boolean checkAndSignal(RVMThread t) {
+      if (Options.verbose.getValue() >= 8) VM.sysWriteln("Requesting async process of on-the-fly mutator phase");
+      t.mutatorProcessPhase = true;
+      return true;
+    }
+
+    @Uninterruptible
+    public void notifyStuckInNative(RVMThread t) {
+      if (Options.verbose.getValue() >= 8) VM.sysWriteln("Performing process collectionPhase on behalf of blocked thread");
+      t.collectionPhase(getOnTheFlyPhase(), false);
+      t.mutatorProcessPhase = false;
+    }
+
+    @Uninterruptible
+    public boolean includeThread(RVMThread t) {
+      return !t.isCollectorThread();
+    }
+  };
 
   @Override
   @UninterruptibleNoWarn("This method is really unpreemptible, since it involves blocking")
