@@ -8,9 +8,8 @@ This implementation is the result of research and technical work by:
 * [Tomoharu Ugawa](http://spa.cs.uec.ac.jp/~ugawa/index-e.html) (Kochi University of Technology)
 * [Carl G. Ritson](http://www.cs.kent.ac.uk/~cgr/) (University of Kent)
 * [Richard E. Jones](http://www.cs.kent.ac.uk/~rej/) (University of Kent)
-Please contact [Carl Ritson](mailto:c.g.ritson@kent.ac.uk) or Richard Jones for more information.
 
-The official Jikes RVM website and repository can be found [here](http://jikesrvm.org).
+Please contact [Carl Ritson](mailto:c.g.ritson@kent.ac.uk) or Richard Jones for more information.
 
 Sapphire is an on-the-fly concurrent copying garbage collector.
 This means it does not need to stop all user threads to perform
@@ -24,6 +23,7 @@ It is documented in a journal paper [here](http://onlinelibrary.wiley.com/doi/10
 This implementation was performed with permission from Intel
 who hold patents on Sapphire's design.
 
+The official Jikes RVM website and repository can be found [here](http://jikesrvm.org).
 
 ### Building
 
