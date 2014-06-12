@@ -3,11 +3,11 @@
 This repository contains a copy of Jikes RVM patched with an
 implement of the Sapphire garbage collection algorithm.
 
-These patches are the result of research and technical work by:
+This implementation is the result of research and technical work by:
 * Laurence Hellyer
-* Tomoharu Ugawa (Kochi University of Technology)
-* Carl G. Ritson (University of Kent)
-* Richard E. Jones (University of Kent)
+* [Tomoharu Ugawa](http://spa.cs.uec.ac.jp/~ugawa/index-e.html) (Kochi University of Technology)
+* [Carl G. Ritson](http://www.cs.kent.ac.uk/~cgr/) (University of Kent)
+* [Richard E. Jones](http://www.cs.kent.ac.uk/~rej/) (University of Kent)
 
 The official Jikes RVM website and repository can be found [here](http://jikesrvm.org).
 
