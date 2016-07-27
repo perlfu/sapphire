@@ -129,7 +129,6 @@ public abstract class Plan implements Constants {
   public static final LargeObjectSpace largeCodeSpace = USE_CODE_SPACE ? new LargeObjectSpace("lg-code", VMRequest.discontiguous()) : null;
 
   public static int pretenureThreshold = Integer.MAX_VALUE;
-  public static int stwTrigger = 0;
 
   /* Space descriptors */
   public static final int IMMORTAL = immortalSpace.getDescriptor();
@@ -175,7 +174,6 @@ public abstract class Plan implements Constants {
     Options.variableSizeHeap = new VariableSizeHeap();
     Options.eagerMmapSpaces = new EagerMmapSpaces();
     Options.sanityCheck = new SanityCheck();
-    Options.stwTrigger = new STWTrigger();
     Options.debugAddress = new DebugAddress();
     Options.perfEvents = new PerfEvents();
     Options.useReturnBarrier = new UseReturnBarrier();
@@ -234,7 +232,6 @@ public abstract class Plan implements Constants {
     if (Options.verbose.getValue() > 0) Stats.startAll();
     if (Options.eagerMmapSpaces.getValue()) Space.eagerlyMmapMMTkSpaces();
     pretenureThreshold = (int) ((Options.nurserySize.getMaxNursery()<<LOG_BYTES_IN_PAGE) * Options.pretenureThresholdFraction.getValue());
-    stwTrigger = Options.stwTrigger.getValue();
   }
 
   /**
@@ -943,12 +940,7 @@ public abstract class Plan implements Constants {
    */
   protected boolean collectionRequired(boolean spaceFull, Space space) {
     boolean stressForceGC = stressTestGCRequired();
-    boolean heapFull;
-    if (stwTrigger > 0) {
-        heapFull = getPagesReserved() > stwTrigger;
-    } else {
-        heapFull = getPagesReserved() > getTotalPages();
-    }
+    boolean heapFull = getPagesReserved() > getTotalPages();
 
     return spaceFull || stressForceGC || heapFull;
   }

@@ -34,4 +34,7 @@ public class CMSConstraints extends ConcurrentConstraints {
 
   @Override
   public int maxNonLOSDefaultAllocBytes() { return SegregatedFreeListSpace.MAX_FREELIST_OBJECT_BYTES; }
+  
+  @Override
+  public boolean supportsBiasedLocking() { return false; }
 }

@@ -33,7 +33,7 @@ public class OTFSapphireConstraints extends OnTheFlyConstraints {
   public int numSpecializedScans() { return 0; }
 
   @Override
-  public int maxNonLOSDefaultAllocBytes() { return !OTFSapphire.NO_LOS ? BYTES_IN_PAGE * 32: org.mmtk.utility.Constants.MAX_INT; }
+  public int maxNonLOSDefaultAllocBytes() { return !OTFSapphire.NO_LOS ? BYTES_IN_PAGE : org.mmtk.utility.Constants.MAX_INT; }
 
   // LPJH: later implement bulkCopy support
 

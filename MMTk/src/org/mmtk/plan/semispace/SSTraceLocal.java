@@ -36,7 +36,7 @@ public class SSTraceLocal extends TraceLocal {
    * Constructor
    */
   public SSTraceLocal(Trace trace) {
-    this(trace, true);
+    this(trace, false);
   }
 
   /****************************************************************************
