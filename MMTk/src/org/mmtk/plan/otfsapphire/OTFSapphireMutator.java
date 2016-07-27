@@ -117,6 +117,9 @@ public class OTFSapphireMutator extends OnTheFlyMutator {
   protected ReplicatingSpace fromSpace;
   private Address fromSpaceReplica = Address.zero();
 
+  private boolean inGC = false;
+  private int allocInGC = 0;
+
   /****************************************************************************
    *
    * Initialization
@@ -239,6 +242,8 @@ public class OTFSapphireMutator extends OnTheFlyMutator {
   @Inline
   public Address alloc(int bytes, int align, int offset, int allocator, int site) {
     Address addy;
+    if (inGC)
+        allocInGC += bytes;
     if (VM.VERIFY_ASSERTIONS) VM.assertions._assert(fromSpaceReplica.isZero());
     if (allocator == OTFSapphire.ALLOC_REPLICATING) {
       addy = fromSpaceLocal.alloc(bytes,  align, offset);  // may cause GC
@@ -427,6 +432,8 @@ public class OTFSapphireMutator extends OnTheFlyMutator {
       if (!prepared)
         super.collectionPhase(Simple.PREPARE, primary);
       prepared = false;
+      allocInGC = 0;
+      inGC = true;
       return;
     }
 
@@ -578,6 +585,11 @@ public class OTFSapphireMutator extends OnTheFlyMutator {
       setupBarrier();
       if (VM.VERIFY_ASSERTIONS) VM.assertions._assert(!barrierEnable());
       super.collectionPhase(Simple.RELEASE, primary);
+      inGC = false;
+      if (allocInGC > 0) {
+        Log.writeln("allocInGC ", allocInGC);
+        allocInGC = 0;
+      }
       return;
     }
 

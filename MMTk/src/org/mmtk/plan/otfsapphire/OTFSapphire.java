@@ -19,6 +19,7 @@ import org.mmtk.policy.MarkSweepSpace;
 import org.mmtk.policy.Space;
 import org.mmtk.plan.*;
 import org.mmtk.plan.onthefly.OnTheFly;
+import org.mmtk.utility.Conversions;
 import org.mmtk.utility.Log;
 import org.mmtk.utility.alloc.Allocator;
 import org.mmtk.utility.alloc.BumpPointer;
@@ -487,6 +488,7 @@ public class OTFSapphire extends OnTheFly {
   public OTFSapphireCopyScan copyScan;
   private int concurrentTriggerMethod;
   private int concurrentTrigger;
+  private int stwTrigger = 0;
   private int lastCollectionUsedPages = 0;
   private long lastCollectionStartTime = 0;
   private long lastCollectionCompleteTime = 0;
@@ -724,6 +726,7 @@ public class OTFSapphire extends OnTheFly {
 
     if (phaseId == RELEASE_FLIP) {
       if (VM.VERIFY_ASSERTIONS) assert_TO_SPLACE_LOCAL_IS_EMPTY = true;
+      printHeapUsage();
       low = !low; // flip the semi-spaces
       toSpace().release();
       OTFSapphire.tackOnLock.acquire();
@@ -752,6 +755,13 @@ public class OTFSapphire extends OnTheFly {
     }
 
     super.collectionPhase(phaseId);
+  }
+
+  protected void printHeapUsage() {
+	  Log.write("->"); Log.write(Conversions.pagesToKBytes(getPagesUsed())); Log.write(" KB");
+	  Log.write(" (From = ");  Log.write(Conversions.pagesToKBytes(fromSpace().reservedPages()));
+	  Log.write(" KB To = "); Log.write(Conversions.pagesToKBytes(toSpace().reservedPages()));
+	  Log.write(" KB Other = "); Log.write(Conversions.pagesToKBytes(super.getPagesUsed())); Log.write(" KB) ");
   }
 
   @Override
@@ -789,7 +799,11 @@ public class OTFSapphire extends OnTheFly {
    */
   public final int getCollectionReserve() {
     // our copy reserve is the size of fromSpace less any copying we have done so far
-    return fromSpace().reservedPages() + super.getCollectionReserve();
+    if (stwTrigger == 0) {
+        return (fromSpace().reservedPages() - toSpace().reservedPages()) + super.getCollectionReserve();
+    } else {
+        return super.getCollectionReserve();
+    }
   }
 
   /**
@@ -1013,6 +1027,7 @@ public class OTFSapphire extends OnTheFly {
     copyScanSTW = new OTFSapphireCopyScan.CopyScanUnsafe2(flipRootTrace);
     concurrentTriggerMethod = Options.concurrentTriggerMethod.method();
     concurrentTrigger = Options.concurrentTrigger.getValueForMethod(concurrentTriggerMethod);
+    stwTrigger = Options.stwTrigger.getValue();
     
     if (MERGE_REPLICATE_PHASE) Log.writeln("Option: MERGE_REPLICATE_PHASE");
     if (REPLICATE_WITH_CAS)    Log.writeln("Option: REPLICATE_WITH_CAS");
