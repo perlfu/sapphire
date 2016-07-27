@@ -62,7 +62,6 @@ public final class Options {
   public static SanityCheck sanityCheck;
   public static SapphireSTWPhase sapphireSTWPhase;
   public static StressFactor stressFactor;
-  public static STWTrigger stwTrigger;
   public static Threads threads;
   public static TraceRate traceRate;
   public static UseReturnBarrier useReturnBarrier;
